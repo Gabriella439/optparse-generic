@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -142,7 +143,16 @@ instance ParseField a => ParseField (Maybe a) where
 instance ParseField a => ParseField [a] where
     parseField = fmap many parseField
 
-newtype Only a = Only { getOnly :: a }
+{-| Use this to parse a naked field from the command line without wrapping the
+    value in a record, like this:
+
+> main = do
+>     Only x <- getRecord
+>     ...
+-}
+newtype Only a = Only a deriving (Generic)
+
+instance ParseField a => ParseRecord (Only a)
 
 {-| A class for types that can be parsed from the command line
 
