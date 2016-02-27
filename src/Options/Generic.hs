@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
@@ -40,7 +39,6 @@ import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (toUpper)
 import Data.Monoid
-import Data.String (IsString(..))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Void (Void)
@@ -225,16 +223,14 @@ instance (Constructor c, GenericParseRecord f) => GenericParseRecord (M1 C c f) 
 instance GenericParseRecord f => GenericParseRecord (M1 D c f) where
     genericParseRecord = fmap M1 (Options.helper <*> genericParseRecord)
 
-{-| A brief description of what your program does
-
-    This description will appear in the header of the @--help@ output
--}
-newtype Description = Description { getDescription :: Text }
-    deriving (IsString)
-
-getRecord :: (MonadIO io, ParseRecord a) => Description -> io a
+-- | Marshal any value that implements `ParseRecord` from the command line
+getRecord
+    :: (MonadIO io, ParseRecord a)
+    => Text
+    -- ^ Program description
+    -> io a
 getRecord desc = liftIO (Options.execParser info)
   where
-    header = Options.header (Data.Text.unpack (getDescription desc))
+    header = Options.header (Data.Text.unpack desc)
 
     info = Options.info parseRecord header
