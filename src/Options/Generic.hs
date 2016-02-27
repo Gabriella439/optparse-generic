@@ -138,10 +138,16 @@ instance ParseField a => ParseField (Maybe a) where
     parseField = fmap optional parseField
 
 instance ParseField a => ParseField (First a) where
-    parseField = fmap (fmap mconcat . many . fmap pure) parseField
+    parseField = fmap (fmap mconcat . many . fmap First) parseField
 
 instance ParseField a => ParseField (Last a) where
-    parseField = fmap (fmap mconcat . many . fmap pure) parseField
+    parseField = fmap (fmap mconcat . many . fmap Last) parseField
+
+instance (Num a, ParseField a) => ParseField (Sum a) where
+    parseField = fmap (fmap mconcat . many . fmap Sum) parseField
+
+instance (Num a, ParseField a) => ParseField (Product a) where
+    parseField = fmap (fmap mconcat . many . fmap Product) parseField
 
 instance ParseField a => ParseField [a] where
     parseField = fmap many parseField
