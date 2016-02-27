@@ -102,7 +102,8 @@
 -- > $ stack runghc Example.hs -- kill --name foo
 -- > Kill {name = "foo"}
 --
--- This library also provides out-of-the-box support for tuples and `Either`.
+-- This library also provides out-of-the-box support for many existing types,
+-- like tuples and `Either`.
 --
 -- > {-# LANGUAGE DeriveGeneric     #-}
 -- > {-# LANGUAGE OverloadedStrings #-}
@@ -125,10 +126,10 @@
 -- > $ stack runghc Example.hs -- 1.0 2
 -- > (1.0,2)
 --
--- ... and if you want to parse just a single value you can use `Only`:
+-- ... and you can also just parse a single value:
 --
 -- > main = do
--- >     Only x <- getRecord "Test program"
+-- >     x <- getRecord "Test program"
 -- >     print (x :: Int)
 --
 -- > $ stack runghc Example.hs -- 2
@@ -137,10 +138,11 @@
 module Options.Generic (
     -- * Parsers
       getRecord
-    , Only(..)
-    , ParseField(..)
-    , ParseFields(..)
     , ParseRecord(..)
+    , ParseFields(..)
+    , ParseField(..)
+    , Only(..)
+    , getOnly
 
     -- * Re-exports
     , Generic
@@ -182,8 +184,8 @@ auto = do
         Just x  -> return x
         Nothing -> Options.readerAbort Options.ShowHelpText
 
-{-| A class for all types that can be parsed from exactly one option or argument
-    on the command line
+{-| A class for all record fields that can be parsed from exactly one option or
+    argument on the command line
 
     `parseField` has a default implementation for any type that implements
     `Read` and `Typeable`.  You can derive `Read` for many types and you can
@@ -249,7 +251,7 @@ instance ParseField FilePath where
     `parseFields` has a default implementation for any type that implements
     `ParseField`
 -}
-class ParseFields a where
+class ParseRecord a => ParseFields a where
     parseFields
         :: Maybe Text
         -- ^ Field label
@@ -279,14 +281,14 @@ instance ParseFields Bool where
 instance ParseFields () where
     parseFields _ = pure ()
 
-instance ParseField a => ParseFields (Maybe a) where
-    parseFields = fmap optional parseField
-
 instance ParseFields Any where
     parseFields = fmap (fmap mconcat . many . fmap Any) parseField
 
 instance ParseFields All where
     parseFields = fmap (fmap mconcat . many . fmap All) parseField
+
+instance ParseField a => ParseFields (Maybe a) where
+    parseFields = fmap optional parseField
 
 instance ParseField a => ParseFields (First a) where
     parseFields = fmap (fmap mconcat . many . fmap pure) parseField
@@ -303,19 +305,32 @@ instance (Num a, ParseField a) => ParseFields (Product a) where
 instance ParseField a => ParseFields [a] where
     parseFields = fmap many parseField
 
-{-| This is a convenience type for parsing a single field
-
-> main = do
->     Only x <- getRecord "Example program"
->     print (x :: Double)
+{-| A 1-tuple, used solely to translate `ParseFields` instances into
+    `ParseRecord` instances
 -}
 newtype Only a = Only a deriving (Generic)
+
+{-| This is a convenience function that you can use if you want to create a
+    `ParseRecord` instance that just defers to the `ParseFields` instance for
+    the same type:
+
+> instance ParseRecord MyType where
+>     parseRecord = fmap getOnly parseRecord
+-}
+getOnly :: Only a -> a
+getOnly (Only x) = x
 
 {-| A class for types that can be parsed from the command line
 
     This class has a default implementation for any type that implements
     `Generic` and you can derive `Generic` for many types by enabling the
     @DeriveGeneric@ language extension
+
+    You can also use `getOnly` to create a `ParseRecord` instance from a
+    `ParseFields` instance:
+
+> instance ParseRecord MyType where
+>     parseRecord = fmap getOnly parseRecord
 -}
 class ParseRecord a where
     parseRecord :: Parser a
@@ -323,6 +338,54 @@ class ParseRecord a where
     parseRecord = fmap GHC.Generics.to genericParseRecord
 
 instance ParseFields a => ParseRecord (Only a)
+
+-- TODO: Use `Generic` or `Only` for these instances?
+-- TODO: Pay close attention to `ParseRecord` for `Bool`
+instance ParseRecord Double
+instance ParseRecord Float
+instance ParseRecord Int
+instance ParseRecord Ordering
+instance ParseRecord Void
+instance ParseRecord ()
+
+instance ParseRecord Bool where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Integer where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.Text.Text where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.Text.Lazy.Text where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Any where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord All where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord FilePath where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseField a => ParseRecord (Maybe a) where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseField a => ParseRecord (First a) where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseField a => ParseRecord (Last a) where
+    parseRecord = fmap getOnly parseRecord
+
+instance (Num a, ParseField a) => ParseRecord (Sum a) where
+    parseRecord = fmap getOnly parseRecord
+
+instance (Num a, ParseField a) => ParseRecord (Product a) where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseField a => ParseRecord [a] where
+    parseRecord = fmap getOnly parseRecord
 
 instance (ParseFields a, ParseFields b) => ParseRecord (a, b)
 instance (ParseFields a, ParseFields b, ParseFields c) => ParseRecord (a, b, c)
@@ -339,9 +402,11 @@ class GenericParseRecord f where
 instance GenericParseRecord U1 where
     genericParseRecord = pure U1
 
+-- See: [NOTE - Sums]
 instance GenericParseRecord f => GenericParseRecord (M1 C c f) where
     genericParseRecord = fmap M1 genericParseRecord
 
+-- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => GenericParseRecord (M1 C c f :+: (g :+: h)) where
     genericParseRecord = do
         let m :: M1 i c f a
@@ -359,6 +424,7 @@ instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => 
 
         fmap (L1 . M1) parser <|> genericParseRecord
 
+-- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => GenericParseRecord ((f :+: g) :+: M1 C c h) where
     genericParseRecord = do
         let m :: M1 i c h a
@@ -376,6 +442,7 @@ instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => 
 
         genericParseRecord <|> fmap (R1 . M1) parser
 
+-- See: [NOTE - Sums]
 instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRecord f2) => GenericParseRecord (M1 C c1 f1 :+: M1 C c2 f2) where
     genericParseRecord = do
         let m1 :: M1 i c1 f a
