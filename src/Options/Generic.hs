@@ -93,7 +93,6 @@ class ParseField a where
                        <> Options.long (Data.Text.unpack name)
                 Options.option   auto fs
 
-instance ParseField Char
 instance ParseField Double
 instance ParseField Float
 instance ParseField Int
@@ -159,8 +158,6 @@ instance ParseField a => ParseRecord (Only a) where
     parseRecord = Options.helper <*> fmap Only (parseField Nothing)
 
 instance ParseRecord Bool
-instance ParseRecord Char where
-    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Double where
     parseRecord = fmap getOnly parseRecord
 instance ParseRecord Float where
