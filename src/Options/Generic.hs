@@ -141,6 +141,9 @@ instance ParseField FilePath where
 instance ParseField a => ParseField (Maybe a) where
     parseField = fmap optional parseField
 
+instance ParseField a => ParseField [a] where
+    parseField = fmap many parseField
+
 newtype Only a = Only { getOnly :: a }
 
 {-| A class for types that can be parsed from the command line
