@@ -163,19 +163,6 @@ class ParseRecord a where
     default parseRecord :: (Generic a, GenericParseRecord (Rep a)) => Parser a
     parseRecord = fmap GHC.Generics.to genericParseRecord
 
-instance ParseField a => ParseRecord (Only a) where
-    parseRecord = Options.helper <*> fmap Only (parseField Nothing)
-
-instance ParseRecord Bool
-instance ParseRecord Double where
-    parseRecord = fmap getOnly parseRecord
-instance ParseRecord Float where
-    parseRecord = fmap getOnly parseRecord
-instance ParseRecord Int where
-    parseRecord = fmap getOnly parseRecord
-instance ParseRecord Ordering
-instance ParseRecord ()
-
 class GenericParseRecord f where
     genericParseRecord :: Parser (f p)
 
