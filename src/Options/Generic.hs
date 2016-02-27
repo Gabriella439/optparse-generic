@@ -67,11 +67,9 @@ auto = do
     the command line
 
     `parseField` has a default implementation for any type that implements
-    `Read` and you can derive `Read` for many types
-
-    `metavar` has a default implementation for any type that implements
-    `Typeable` and you can derive `Typeable` for any type if you enable the
-    @DeriveDataTypeable@ language extension
+    `Read` and `Typeable`.  You can derive `Read` for many types and you can
+    derive `Typeable` for any type if you enable the @DeriveDataTypeable@
+    language extension
 -}
 class ParseField a where
     parseField
