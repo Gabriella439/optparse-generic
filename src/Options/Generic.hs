@@ -134,6 +134,33 @@
 --
 -- > $ stack runghc Example.hs -- 2
 -- > 2
+--
+-- However, there are some types that this library cannot generate sensible
+-- command-line parsers for, such as:
+--
+-- * recursive types:
+--
+--     > data Example = Example { foo :: Example }
+--
+-- * records whose fields are other records
+--
+--     > data Outer = Outer { foo :: Inner } deriving (Show, Generic)
+--     > data Inner = Inner { bar :: Int   } deriving (Show, Generic)
+--
+-- * record fields  with nested `Maybe`s or nested lists
+--
+--     > data Example = Example { foo :: Maybe (Maybe Int) }
+--     > data Example = Example { foo :: [[Int]]           }
+--
+-- If you try to auto-generate a parser for these types you will get an error at
+-- compile time that will look something like this:
+--
+-- >     No instance for (ParseFields TheTypeOfYourField)
+-- >       arising from a use of ‘Options.Generic.$gdmparseRecord’
+-- >     In the expression: Options.Generic.$gdmparseRecord
+-- >     In an equation for ‘parseRecord’:
+-- >         parseRecord = Options.Generic.$gdmparseRecord
+-- >     In the instance declaration for ‘ParseRecord TheTypeOfYourRecord’
 
 module Options.Generic (
     -- * Parsers
