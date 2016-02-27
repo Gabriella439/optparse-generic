@@ -31,6 +31,7 @@
 -- Named fields translate to flags which you can provide in any order:
 --
 -- > $ stack build optparse-generic
+-- > $ stack runghc Example.hs -- --bar 2.5 --foo 1
 -- > Example {foo = 1, bar = 2.5}
 --
 -- This also auto-generates @--help@ output:
@@ -71,13 +72,13 @@
 -- This gives the following behavior:
 --
 -- > $ stack runghc Example.hs --   \
--- > >     --switch                 \
--- > >     --optional 1             \
--- > >     --list    1 --list    2  \
--- > >     --first   1 --first   2  \
--- > >     --last    1 --last    2  \
--- > >     --sum     1 --sum     2  \
--- > >     --product 1 --product 2
+-- >       --switch                 \
+-- >       --optional 1             \
+-- >       --list    1 --list    2  \
+-- >       --first   1 --first   2  \
+-- >       --last    1 --last    2  \
+-- >       --sum     1 --sum     2  \
+-- >       --product 1 --product 2
 -- > Example {switch = True, list = [1,2], optional = Just 1, first = First 
 -- > {getFirst = Just 1}, last = Last {getLast = Just 2}, sum = Sum {getSum =
 -- > 3}, product = Product {getProduct = 2}}
@@ -138,11 +139,14 @@ module Options.Generic (
       getRecord
     , Only(..)
     , ParseField(..)
+    , ParseFields(..)
     , ParseRecord(..)
 
     -- * Re-exports
     , Generic
     , Text
+    , All(..)
+    , Any(..)
     , First(..)
     , Last(..)
     , Sum(..)
@@ -178,15 +182,15 @@ auto = do
         Just x  -> return x
         Nothing -> Options.readerAbort Options.ShowHelpText
 
-{-| A class for all types that can be parsed from a single option or argument on
-    the command line
+{-| A class for all types that can be parsed from exactly one option or argument
+    on the command line
 
     `parseField` has a default implementation for any type that implements
     `Read` and `Typeable`.  You can derive `Read` for many types and you can
     derive `Typeable` for any type if you enable the @DeriveDataTypeable@
     language extension
 -}
-class ParseField a where
+class ParseFields a => ParseField a where
     parseField
         :: Maybe Text
         -- ^ Field label
@@ -205,24 +209,14 @@ class ParseField a where
                        <> Options.long (Data.Text.unpack name)
                 Options.option   auto fs
 
+instance ParseField Bool
 instance ParseField Double
 instance ParseField Float
 instance ParseField Int
 instance ParseField Integer
 instance ParseField Ordering
+instance ParseField ()
 instance ParseField Void
-
-instance ParseField () where
-    parseField _ = pure ()
-
-instance ParseField Bool where
-    parseField m =
-        case m of
-            Nothing   -> do
-                let fs =  Options.metavar "BOOL"
-                Options.argument auto fs
-            Just name -> do
-                Options.switch (Options.long (Data.Text.unpack name))
 
 instance ParseField Any where
     parseField = fmap (fmap Any) parseField
@@ -249,23 +243,65 @@ instance ParseField Data.Text.Lazy.Text where
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
 
-instance ParseField a => ParseField (Maybe a) where
-    parseField = fmap optional parseField
+{-| A class for all types that can be parsed from zero or more arguments/options
+    on the command line
 
-instance ParseField a => ParseField (First a) where
-    parseField = fmap (fmap mconcat . many . fmap pure) parseField
+    `parseFields` has a default implementation for any type that implements
+    `ParseField`
+-}
+class ParseFields a where
+    parseFields
+        :: Maybe Text
+        -- ^ Field label
+        -> Parser a
+    default parseFields :: ParseField a => Maybe Text -> Parser a
+    parseFields = parseField
 
-instance ParseField a => ParseField (Last a) where
-    parseField = fmap (fmap mconcat . many . fmap pure) parseField
+instance ParseFields Double
+instance ParseFields Float
+instance ParseFields Int
+instance ParseFields Integer
+instance ParseFields Ordering
+instance ParseFields Void
+instance ParseFields Data.Text.Text
+instance ParseFields Data.Text.Lazy.Text
+instance ParseFields FilePath
 
-instance (Num a, ParseField a) => ParseField (Sum a) where
-    parseField = fmap (fmap mconcat . many . fmap Sum) parseField
+instance ParseFields Bool where
+    parseFields m =
+        case m of
+            Nothing   -> do
+                let fs =  Options.metavar "BOOL"
+                Options.argument auto fs
+            Just name -> do
+                Options.switch (Options.long (Data.Text.unpack name))
 
-instance (Num a, ParseField a) => ParseField (Product a) where
-    parseField = fmap (fmap mconcat . many . fmap Product) parseField
+instance ParseFields () where
+    parseFields _ = pure ()
 
-instance ParseField a => ParseField [a] where
-    parseField = fmap many parseField
+instance ParseField a => ParseFields (Maybe a) where
+    parseFields = fmap optional parseField
+
+instance ParseFields Any where
+    parseFields = fmap (fmap mconcat . many . fmap Any) parseField
+
+instance ParseFields All where
+    parseFields = fmap (fmap mconcat . many . fmap All) parseField
+
+instance ParseField a => ParseFields (First a) where
+    parseFields = fmap (fmap mconcat . many . fmap pure) parseField
+
+instance ParseField a => ParseFields (Last a) where
+    parseFields = fmap (fmap mconcat . many . fmap pure) parseField
+
+instance (Num a, ParseField a) => ParseFields (Sum a) where
+    parseFields = fmap (fmap mconcat . many . fmap Sum) parseField
+
+instance (Num a, ParseField a) => ParseFields (Product a) where
+    parseFields = fmap (fmap mconcat . many . fmap Product) parseField
+
+instance ParseField a => ParseFields [a] where
+    parseFields = fmap many parseField
 
 {-| This is a convenience type for parsing a single field
 
@@ -286,16 +322,16 @@ class ParseRecord a where
     default parseRecord :: (Generic a, GenericParseRecord (Rep a)) => Parser a
     parseRecord = fmap GHC.Generics.to genericParseRecord
 
-instance ParseField a => ParseRecord (Only a)
+instance ParseFields a => ParseRecord (Only a)
 
-instance (ParseField a, ParseField b) => ParseRecord (a, b)
-instance (ParseField a, ParseField b, ParseField c) => ParseRecord (a, b, c)
-instance (ParseField a, ParseField b, ParseField c, ParseField d) => ParseRecord (a, b, c, d)
-instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e) => ParseRecord (a, b, c, d, e)
-instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e, ParseField f) => ParseRecord (a, b, c, d, e, f)
-instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e, ParseField f, ParseField g) => ParseRecord (a, b, c, d, e, f, g)
+instance (ParseFields a, ParseFields b) => ParseRecord (a, b)
+instance (ParseFields a, ParseFields b, ParseFields c) => ParseRecord (a, b, c)
+instance (ParseFields a, ParseFields b, ParseFields c, ParseFields d) => ParseRecord (a, b, c, d)
+instance (ParseFields a, ParseFields b, ParseFields c, ParseFields d, ParseFields e) => ParseRecord (a, b, c, d, e)
+instance (ParseFields a, ParseFields b, ParseFields c, ParseFields d, ParseFields e, ParseFields f) => ParseRecord (a, b, c, d, e, f)
+instance (ParseFields a, ParseFields b, ParseFields c, ParseFields d, ParseFields e, ParseFields f, ParseFields g) => ParseRecord (a, b, c, d, e, f, g)
 
-instance (ParseField a, ParseField b) => ParseRecord (Either a b)
+instance (ParseFields a, ParseFields b) => ParseRecord (Either a b)
 
 class GenericParseRecord f where
     genericParseRecord :: Parser (f p)
@@ -371,7 +407,7 @@ instance (GenericParseRecord f, GenericParseRecord g) => GenericParseRecord (f :
 instance GenericParseRecord V1 where
     genericParseRecord = empty
 
-instance (Selector s, ParseField a) => GenericParseRecord (M1 S s (K1 i a)) where
+instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) where
     genericParseRecord = do
         let m :: M1 i s f a
             m = undefined
@@ -379,7 +415,7 @@ instance (Selector s, ParseField a) => GenericParseRecord (M1 S s (K1 i a)) wher
         let label = case (selName m) of
                 ""   -> Nothing
                 name -> Just (Data.Text.pack name)
-        fmap (M1 . K1) (parseField label)
+        fmap (M1 . K1) (parseFields label)
 
 {- [NOTE - Sums]
 
