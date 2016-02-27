@@ -29,6 +29,7 @@
 module Options.Generic (
     -- * Parsers
       getRecord
+    , Only(..)
     , ParseField(..)
     , ParseRecord(..)
 
@@ -38,6 +39,7 @@ module Options.Generic (
 
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
+import Data.Char (toUpper)
 import Data.Monoid
 import Data.String (IsString(..))
 import Data.Text (Text)
@@ -50,7 +52,7 @@ import Options.Applicative (Parser, ReadM)
 
 import qualified Data.Text
 import qualified Data.Typeable
-import qualified Filesystem.Path.CurrentOS
+import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
 import qualified Text.Read
@@ -75,36 +77,71 @@ auto = do
     @DeriveDataTypeable@ language extension
 -}
 class ParseField a where
-    parseField :: ReadM a
-    default parseField :: Read a => ReadM a
-    parseField = auto
+    parseField
+        :: Maybe Text
+        -- ^ Field label
+        -> Parser a
+    default parseField :: (Typeable a, Read a) => Maybe Text -> Parser a
+    parseField m = do
+        let p :: Proxy a
+            p = Proxy
+        let metavar = map toUpper (show (Data.Typeable.typeRep p))
+        case m of
+            Nothing   -> do
+                let fs =  Options.metavar metavar
+                Options.argument auto fs
+            Just name -> do
+                let fs =  Options.metavar metavar
+                       <> Options.long (Data.Text.unpack name)
+                Options.option   auto fs
 
-    metavar :: proxy a -> Text
-    default metavar :: Typeable a => proxy a -> Text
-    metavar proxy = Data.Text.pack (show (Data.Typeable.typeRep proxy))
-
-instance ParseField Integer
-
-instance ParseField Bool
 instance ParseField Char
 instance ParseField Double
 instance ParseField Float
 instance ParseField Int
+instance ParseField Integer
 instance ParseField Ordering
 instance ParseField ()
-instance ParseField Any where
-    parseField = fmap Any parseField
-    metavar  _ = "Bool"
-instance ParseField All where
-    parseField = fmap All parseField
-    metavar  _ = "Bool"
 instance ParseField Void
-instance ParseField Text where
-    parseField = fmap Data.Text.pack Options.str
-instance ParseField FilePath where
-    parseField = fmap Filesystem.Path.CurrentOS.decodeString Options.str
 
-newtype Unnamed a = Unnamed { getUnnamed :: a }
+instance ParseField Bool where
+    parseField m =
+        case m of
+            Nothing   -> do
+                let fs =  Options.metavar "BOOL"
+                Options.argument auto fs
+            Just name -> do
+                Options.switch (Options.long (Data.Text.unpack name))
+
+instance ParseField Any where
+    parseField = fmap (fmap Any) parseField
+instance ParseField All where
+    parseField = fmap (fmap All) parseField
+
+parseString :: String -> Maybe Text -> Parser String
+parseString metavar m =
+    case m of
+        Nothing   -> do
+            let fs = Options.metavar metavar
+            Options.argument Options.str fs
+        Just name -> do
+            let fs =  Options.metavar metavar
+                   <> Options.long (Data.Text.unpack name)
+            Options.option Options.str fs
+
+instance ParseField String where
+    parseField = parseString "STRING"
+
+instance ParseField Text where
+    parseField = fmap (fmap Data.Text.pack) (parseString "TEXT")
+
+instance ParseField FilePath where
+    parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
+
+instance ParseField a => ParseField (Maybe a) where
+    parseField = fmap optional parseField
+
+newtype Only a = Only { getOnly :: a }
 
 {-| A class for types that can be parsed from the command line
 
@@ -117,26 +154,21 @@ class ParseRecord a where
     default parseRecord :: (Generic a, GenericParseRecord (Rep a)) => Parser a
     parseRecord = fmap GHC.Generics.to genericParseRecord
 
-instance ParseField a => ParseRecord (Unnamed a) where
-    parseRecord = Options.helper <*> fmap Unnamed p
-      where
-        p = Options.argument parseField
-                (Options.metavar (Data.Text.unpack (metavar p)))
+instance ParseField a => ParseRecord (Only a) where
+    parseRecord = Options.helper <*> fmap Only (parseField Nothing)
 
--- TODO: Why is there no `Generic` instance for `Integer`?
 instance ParseRecord Bool
 instance ParseRecord Char where
-    parseRecord = fmap getUnnamed parseRecord
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Double where
-    parseRecord = fmap getUnnamed parseRecord
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Float where
-    parseRecord = fmap getUnnamed parseRecord
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Int where
-    parseRecord = fmap getUnnamed parseRecord
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Ordering
 instance ParseRecord ()
 
--- TODO: Add flag names
 class GenericParseRecord f where
     genericParseRecord :: Parser (f p)
 
@@ -157,22 +189,10 @@ instance (Selector s, ParseField a) => GenericParseRecord (M1 S s (K1 i a)) wher
         let m :: M1 i s f a
             m = undefined
 
-        let p :: Proxy a
-            p = Proxy
-
-        let name = selName m
-
-        let parser = case name of
-                "" ->
-                    Options.argument parseField
-                        (Options.metavar (Data.Text.unpack (metavar p)))
-                         
-                _  ->
-                    Options.option parseField
-                        (   Options.metavar (Data.Text.unpack (metavar p))
-                        <>  Options.long name
-                        )
-        fmap (M1 . K1) parser
+        let label = case (selName m) of
+                ""   -> Nothing
+                name -> Just (Data.Text.pack name)
+        fmap (M1 . K1) (parseField label)
 
 instance (Constructor c, GenericParseRecord f) => GenericParseRecord (M1 C c f) where
     genericParseRecord = do
