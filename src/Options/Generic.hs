@@ -313,7 +313,7 @@ instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => 
 
         let name = map toLower (conName m)
 
-        let info = Options.info genericParseRecord mempty
+        let info = Options.info (Options.helper <*> genericParseRecord) mempty
 
         let subparserFields =
                    Options.command name info
@@ -330,7 +330,7 @@ instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => 
 
         let name = map toLower (conName m)
 
-        let info = Options.info genericParseRecord mempty
+        let info = Options.info (Options.helper <*> genericParseRecord) mempty
 
         let subparserFields =
                    Options.command name info
@@ -350,8 +350,8 @@ instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRec
         let name1 = map toLower (conName m1)
         let name2 = map toLower (conName m2)
 
-        let info1 = Options.info genericParseRecord mempty
-        let info2 = Options.info genericParseRecord mempty
+        let info1 = Options.info (Options.helper <*> genericParseRecord) mempty
+        let info2 = Options.info (Options.helper <*> genericParseRecord) mempty
 
         let subparserFields1 =
                    Options.command name1 info1
