@@ -216,7 +216,11 @@ instance (Constructor c, GenericParseRecord f) => GenericParseRecord (M1 C c f) 
                    Options.command name info
                 <> Options.metavar name
 
-        fmap M1 (Options.subparser subparserFields)
+        let parser = case name of
+                "Only" -> genericParseRecord
+                _      -> Options.subparser subparserFields
+
+        fmap M1 parser
 
 instance GenericParseRecord f => GenericParseRecord (M1 D c f) where
     genericParseRecord = fmap M1 (Options.helper <*> genericParseRecord)
