@@ -135,6 +135,12 @@ instance ParseField FilePath where
 instance ParseField a => ParseField (Maybe a) where
     parseField = fmap optional parseField
 
+instance ParseField a => ParseField (First a) where
+    parseField = fmap (fmap mconcat . many . fmap pure) parseField
+
+instance ParseField a => ParseField (Last a) where
+    parseField = fmap (fmap mconcat . many . fmap pure) parseField
+
 instance ParseField a => ParseField [a] where
     parseField = fmap many parseField
 
