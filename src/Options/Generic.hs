@@ -100,6 +100,38 @@
 -- > Create {name = "foo", duration = Just 60}
 -- > $ stack runghc Example.hs -- kill --name foo
 -- > Kill {name = "foo"}
+--
+-- This library also provides out-of-the-box support for tuples and `Either`.
+--
+-- > {-# LANGUAGE DeriveGeneric     #-}
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > 
+-- > import Options.Generic
+-- > 
+-- > main = do
+-- >     x <- getRecord "Test program"
+-- >     print (x :: Either Double Int)
+--
+-- > $ stack runghc Example.hs -- left 1.0
+-- > Left 1.0
+-- > $ stack runghc Example.hs -- right 2
+-- > Right 2
+-- 
+-- > main = do
+-- >     x <- getRecord "Test program"
+-- >     print (x :: (Double, Int))
+--
+-- > $ stack runghc Example.hs -- 1.0 2
+-- > (1.0,2)
+--
+-- ... and if you want to parse just a single value you can use `Only`:
+--
+-- > main = do
+-- >     Only x <- getRecord "Test program"
+-- >     print (x :: Int)
+--
+-- > $ stack runghc Example.hs -- 2
+-- > 2
 
 module Options.Generic (
     -- * Parsers
