@@ -5,38 +5,121 @@
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
--- | Example use of this library:
+-- | This library auto-generates command-line parsers for data types using
+-- Haskell's built-in support for generic programming.  The best way to
+-- understand how this library works is to walk through a few examples.
 --
+-- For example, suppose that you want to parse a record with named fields like
+-- this:
+--
+-- > -- Example.hs
+-- >
 -- > {-# LANGUAGE DeriveGeneric     #-}
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > 
--- > import Turtle
 -- > import Options.Generic
 -- > 
--- > data Example = Go { foo :: Int, bar :: Double, baz :: Int }
+-- > data Example = Example { foo :: Int, bar :: Double }
 -- >     deriving (Generic, Show)
 -- > 
 -- > instance ParseRecord Example
 -- > 
 -- > main = do
--- >     x <- options "Test program" parser
+-- >     x <- getRecord "Test program"
 -- >     print (x :: Example)
 --
--- This produces a program with one sub-command (named @Go@)
+-- Named fields translate to flags which you can provide in any order:
+--
+-- > $ stack build optparse-generic
+-- > Example {foo = 1, bar = 2.5}
+--
+-- This also auto-generates @--help@ output:
+--
+-- > $ stack runghc Example.hs -- --help
+-- > Test program
+-- > 
+-- > Usage: Example.hs --foo INT --bar DOUBLE
+-- > 
+-- > Available options:
+-- >   -h,--help                Show this help text
+--
+-- For the following examples I encourage you to test what @--help@ output they
+-- generate.
+--
+-- This library will also do the right thing if the fields have no labels:
+--
+-- > data Example = Example Int Double deriving (Generic, Show)
+--
+-- Fields without labels translate into positional command-line arguments:
+--
+-- > $ stack runghc Example.hs -- 1 2.5
+-- > Example 1 2.5
+--
+-- Certain types of fields are given special treatment, such as in this
+-- example:
+--
+-- > data Example = Example
+-- >     { switch   :: Bool
+-- >     , list     :: [Int]
+-- >     , optional :: Maybe   Int
+-- >     , first    :: First   Int
+-- >     , last     :: Last    Int
+-- >     , sum      :: Sum     Int
+-- >     , product  :: Product Int
+-- >     } deriving (Generic, Show)
+--
+-- This gives the following behavior:
+--
+-- > $ stack runghc Example.hs --   \
+-- > >     --switch                 \
+-- > >     --optional 1             \
+-- > >     --list    1 --list    2  \
+-- > >     --first   1 --first   2  \
+-- > >     --last    1 --last    2  \
+-- > >     --sum     1 --sum     2  \
+-- > >     --product 1 --product 2
+-- > Example {switch = True, list = [1,2], optional = Just 1, first = First 
+-- > {getFirst = Just 1}, last = Last {getLast = Just 2}, sum = Sum {getSum =
+-- > 3}, product = Product {getProduct = 2}}
+-- > 
+-- > $ stack runghc Example.hs
+-- > Example {switch = False, list = [], optional = Nothing, first = First
+-- > {getFirst = Nothing}, second = Last {getLast = Nothing}, sum = Sum {getSum
+-- > = 0}, product = Product {getProduct = 1}}
+--
+-- If a datatype has multiple constructors:
+--
+-- > data Example
+-- >     = Create { name :: Text, duration :: Maybe Int }
+-- >     | Kill   { name :: Text }
+-- >     deriving (Generic, Show)
+--
+-- ... then they will translate into subcommands named after each constructor:
+--
+-- > $ stack runghc Example.hs -- create --name foo --duration=60
+-- > Create {name = "foo", duration = Just 60}
+-- > $ stack runghc Example.hs -- kill --name foo
+-- > Kill {name = "foo"}
 
 module Options.Generic (
     -- * Parsers
       getRecord
+    , Only(..)
     , ParseField(..)
     , ParseRecord(..)
 
     -- * Re-exports
     , Generic
+    , Text
+    , First(..)
+    , Last(..)
+    , Sum(..)
+    , Product(..)
     ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
-import Data.Char (toUpper)
+import Data.Char (toLower, toUpper)
 import Data.Monoid
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -138,10 +221,10 @@ instance ParseField a => ParseField (Maybe a) where
     parseField = fmap optional parseField
 
 instance ParseField a => ParseField (First a) where
-    parseField = fmap (fmap mconcat . many . fmap First) parseField
+    parseField = fmap (fmap mconcat . many . fmap pure) parseField
 
 instance ParseField a => ParseField (Last a) where
-    parseField = fmap (fmap mconcat . many . fmap Last) parseField
+    parseField = fmap (fmap mconcat . many . fmap pure) parseField
 
 instance (Num a, ParseField a) => ParseField (Sum a) where
     parseField = fmap (fmap mconcat . many . fmap Sum) parseField
@@ -151,6 +234,14 @@ instance (Num a, ParseField a) => ParseField (Product a) where
 
 instance ParseField a => ParseField [a] where
     parseField = fmap many parseField
+
+{-| This is a convenience type for parsing a single field
+
+> main = do
+>     Only x <- getRecord "Example program"
+>     print (x :: Double)
+-}
+newtype Only a = Only a deriving (Generic)
 
 {-| A class for types that can be parsed from the command line
 
@@ -163,14 +254,82 @@ class ParseRecord a where
     default parseRecord :: (Generic a, GenericParseRecord (Rep a)) => Parser a
     parseRecord = fmap GHC.Generics.to genericParseRecord
 
+instance ParseField a => ParseRecord (Only a)
+
+instance (ParseField a, ParseField b) => ParseRecord (a, b)
+instance (ParseField a, ParseField b, ParseField c) => ParseRecord (a, b, c)
+instance (ParseField a, ParseField b, ParseField c, ParseField d) => ParseRecord (a, b, c, d)
+instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e) => ParseRecord (a, b, c, d, e)
+instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e, ParseField f) => ParseRecord (a, b, c, d, e, f)
+instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e, ParseField f, ParseField g) => ParseRecord (a, b, c, d, e, f, g)
+
 class GenericParseRecord f where
     genericParseRecord :: Parser (f p)
 
 instance GenericParseRecord U1 where
     genericParseRecord = pure U1
 
-instance (GenericParseRecord f, GenericParseRecord g) => GenericParseRecord (f :+: g) where
-    genericParseRecord = fmap L1 genericParseRecord <|> fmap R1 genericParseRecord
+instance GenericParseRecord f => GenericParseRecord (M1 C c f) where
+    genericParseRecord = fmap M1 genericParseRecord
+
+instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => GenericParseRecord (M1 C c f :+: (g :+: h)) where
+    genericParseRecord = do
+        let m :: M1 i c f a
+            m = undefined
+
+        let name = map toLower (conName m)
+
+        let info = Options.info genericParseRecord mempty
+
+        let subparserFields =
+                   Options.command name info
+                <> Options.metavar name
+
+        let parser = Options.subparser subparserFields
+
+        fmap (L1 . M1) parser <|> genericParseRecord
+
+instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => GenericParseRecord ((f :+: g) :+: M1 C c h) where
+    genericParseRecord = do
+        let m :: M1 i c h a
+            m = undefined
+
+        let name = map toLower (conName m)
+
+        let info = Options.info genericParseRecord mempty
+
+        let subparserFields =
+                   Options.command name info
+                <> Options.metavar name
+
+        let parser = Options.subparser subparserFields
+
+        genericParseRecord <|> fmap (R1 . M1) parser
+
+instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRecord f2) => GenericParseRecord (M1 C c1 f1 :+: M1 C c2 f2) where
+    genericParseRecord = do
+        let m1 :: M1 i c1 f a
+            m1 = undefined
+        let m2 :: M1 i c2 g a
+            m2 = undefined
+
+        let name1 = map toLower (conName m1)
+        let name2 = map toLower (conName m2)
+
+        let info1 = Options.info genericParseRecord mempty
+        let info2 = Options.info genericParseRecord mempty
+
+        let subparserFields1 =
+                   Options.command name1 info1
+                <> Options.metavar name1
+        let subparserFields2 =
+                   Options.command name2 info2
+                <> Options.metavar name2
+
+        let parser1 = Options.subparser subparserFields1
+        let parser2 = Options.subparser subparserFields2
+
+        fmap (L1 . M1) parser1 <|> fmap (R1 . M1) parser2
 
 instance (GenericParseRecord f, GenericParseRecord g) => GenericParseRecord (f :*: g) where
     genericParseRecord = liftA2 (:*:) genericParseRecord genericParseRecord
@@ -188,24 +347,70 @@ instance (Selector s, ParseField a) => GenericParseRecord (M1 S s (K1 i a)) wher
                 name -> Just (Data.Text.pack name)
         fmap (M1 . K1) (parseField label)
 
-instance (Constructor c, GenericParseRecord f) => GenericParseRecord (M1 C c f) where
-    genericParseRecord = do
-        let m :: M1 i c f a
-            m = undefined
+{- [NOTE - Sums]
 
-        let name = conName m
+   You might wonder why the `GenericParseRecord` instances for `(:+:)` are so
+   complicated.  A much simpler approach would be something like this:
 
-        let info = Options.info genericParseRecord mempty
+> instance (GenericParseRecord f, GenericParseRecord g) => GenericParseRecord (f :+: g) where
+>     genericParseRecord = fmap L1 genericParseRecord <|> fmap R1 genericParseRecord
+> 
+> instance (Constructor c, GenericParseRecord f) => GenericParseRecord (M1 C c f) where
+>     genericParseRecord = do
+>         let m :: M1 i c f a
+>             m = undefined
+> 
+>         let name = map toLower (conName m)
+> 
+>         let info = Options.info genericParseRecord mempty
+> 
+>         let subparserFields =
+>                    Options.command n info
+>                 <> Options.metavar n
+> 
+>         fmap M1 (Options.subparser subparserFields)
 
-        let subparserFields =
-                   Options.command name info
-                <> Options.metavar name
+    The reason for the extra complication is so that datatypes with just one
+    constructor don't have subcommands.  That way, if a user defines a data
+    type like:
 
-        let parser = case name of
-                "Only" -> genericParseRecord
-                _      -> Options.subparser subparserFields
+> data Example = Example { foo :: Double } deriving (Generic)
+>
+> instance ParseRecord Example
 
-        fmap M1 parser
+    .. then the command line will only read in the @--foo@ flag and won't
+    expect a gratuitous @example@ subcommand:
+
+> ./example --foo 2
+
+    However, if a user defines a data type with two constructors then the
+    subcommand support will kick in.
+
+    Some other alternatives that I considered and rejected:
+
+    * Alternative #1: Constructors prefixed with something like @Command_@ are
+      turned into sub-commands named after the constructor with the prefix
+      stripped.  If the prefix is not present then they don't get a subcommand.
+
+        I rejected this approach for several reasons:
+
+        * It's ugly
+        * It's error-prone (consider the case: @data T = C1 Int | C2 Int@, which
+          would never successfully parse @C2@).  Subcommands should be mandatory
+          for types with multiple constructors
+        * It doesn't work "out-of-the-box" for most types in the Haskell
+          ecosystem which were not written with this library in mind
+
+    * Alternative #2: Any constructor named some reserved name (like @Only@)
+      would not generate a sub-command.
+
+        I rejected this approach for a couple of reasons:
+
+        * Too surprising.  The user would never know or guess about this
+          behavior without reading the documentation.
+        * Doesn't work "out-of-the-box" for single-constructor types in the
+          Haskell ecosystem (like `(a, b)`, for example)
+-}
 
 instance GenericParseRecord f => GenericParseRecord (M1 D c f) where
     genericParseRecord = fmap M1 (Options.helper <*> genericParseRecord)
