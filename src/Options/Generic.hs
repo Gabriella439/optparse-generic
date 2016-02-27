@@ -263,6 +263,8 @@ instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e) 
 instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e, ParseField f) => ParseRecord (a, b, c, d, e, f)
 instance (ParseField a, ParseField b, ParseField c, ParseField d, ParseField e, ParseField f, ParseField g) => ParseRecord (a, b, c, d, e, f, g)
 
+instance (ParseField a, ParseField b) => ParseRecord (Either a b)
+
 class GenericParseRecord f where
     genericParseRecord :: Parser (f p)
 
