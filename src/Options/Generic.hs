@@ -95,8 +95,10 @@ instance ParseField Float
 instance ParseField Int
 instance ParseField Integer
 instance ParseField Ordering
-instance ParseField ()
 instance ParseField Void
+
+instance ParseField () where
+    parseField _ = pure ()
 
 instance ParseField Bool where
     parseField m =
