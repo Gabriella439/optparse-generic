@@ -49,6 +49,7 @@ import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
 import qualified Data.Text
+import qualified Data.Text.Lazy
 import qualified Data.Typeable
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
@@ -126,11 +127,11 @@ parseString metavar m =
                    <> Options.long (Data.Text.unpack name)
             Options.option Options.str fs
 
-instance ParseField String where
-    parseField = parseString "STRING"
-
-instance ParseField Text where
+instance ParseField Data.Text.Text where
     parseField = fmap (fmap Data.Text.pack) (parseString "TEXT")
+
+instance ParseField Data.Text.Lazy.Text where
+    parseField = fmap (fmap Data.Text.Lazy.pack) (parseString "TEXT")
 
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
