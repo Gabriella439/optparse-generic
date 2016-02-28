@@ -228,7 +228,7 @@ class ParseField a where
     parseField m = do
         let p :: Proxy a
             p = Proxy
-        let metavar = map toUpper (show (Data.Typeable.typeRep p))
+        let metavar = map toUpper (show (Data.Typeable.typeOf p))
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
