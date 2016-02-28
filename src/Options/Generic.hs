@@ -196,6 +196,8 @@ import Options.Applicative (Parser, ReadM)
 
 import qualified Data.Text
 import qualified Data.Text.Lazy
+import qualified Data.Time.Calendar
+import qualified Data.Time.Format
 import qualified Data.Typeable
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
@@ -300,6 +302,27 @@ instance ParseField Data.Text.Lazy.Text where
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
 
+instance ParseField Data.Time.Calendar.Day where
+    parseField m = do
+        let metavar = "YYYY-MM-DD"
+        case m of
+            Nothing   -> do
+                let fs =  Options.metavar metavar
+                Options.argument iso8601Day fs
+            Just name -> do
+                let fs =  Options.metavar metavar
+                       <> Options.long (Data.Text.unpack name)
+                Options.option   iso8601Day fs
+        where
+        iso8601Day = Options.eitherReader
+                   $ runReadS . Data.Time.Format.readSTime
+                                  False
+                                  Data.Time.Format.defaultTimeLocale
+                                  "%F"
+
+        runReadS [(day, "")] = Right day
+        runReadS _           = Left "expected YYYY-MM-DD"
+
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
 
@@ -324,6 +347,7 @@ instance ParseFields Void
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
+instance ParseFields Data.Time.Calendar.Day
 
 instance ParseFields Bool where
     parseFields m =
@@ -426,6 +450,9 @@ instance ParseRecord All where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord FilePath where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.Time.Calendar.Day where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseField a => ParseRecord (Maybe a) where
