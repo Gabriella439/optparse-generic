@@ -395,10 +395,14 @@ class ParseRecord a where
 
 instance ParseFields a => ParseRecord (Only a)
 
-instance ParseRecord Char
-instance ParseRecord Double
-instance ParseRecord Float
-instance ParseRecord Int
+instance ParseRecord Char where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Double where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Float where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Int where
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Ordering
 instance ParseRecord Void
 instance ParseRecord ()
