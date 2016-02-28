@@ -202,8 +202,6 @@ import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
 import qualified Text.Read
 
-data Proxy a = Proxy
-
 auto :: Read a => ReadM a
 auto = do
     s <- Options.readerAsk
@@ -226,9 +224,7 @@ class ParseField a where
         -> Parser a
     default parseField :: (Typeable a, Read a) => Maybe Text -> Parser a
     parseField m = do
-        let p :: Proxy a
-            p = Proxy
-        let metavar = map toUpper (show (Data.Typeable.typeOf p))
+        let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
@@ -351,10 +347,10 @@ instance ParseField a => ParseFields (Maybe a) where
     parseFields = fmap optional parseField
 
 instance ParseField a => ParseFields (First a) where
-    parseFields = fmap (fmap mconcat . many . fmap pure) parseField
+    parseFields = fmap (fmap mconcat . many . fmap (First . Just)) parseField
 
 instance ParseField a => ParseFields (Last a) where
-    parseFields = fmap (fmap mconcat . many . fmap pure) parseField
+    parseFields = fmap (fmap mconcat . many . fmap (Last . Just)) parseField
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
     parseFields = fmap (fmap mconcat . many . fmap Sum) parseField
