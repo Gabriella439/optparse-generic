@@ -219,7 +219,7 @@ auto = do
     derive `Typeable` for any type if you enable the @DeriveDataTypeable@
     language extension
 -}
-class ParseFields a => ParseField a where
+class ParseField a where
     parseField
         :: Maybe Text
         -- ^ Field label
@@ -238,6 +238,16 @@ class ParseFields a => ParseField a where
                        <> Options.long (Data.Text.unpack name)
                 Options.option   auto fs
 
+    {-| The only reason for this method is to provide a special case for
+        handling `String`s.  All other instances should just fall back on the
+        default implementation for `parseListOfField`
+    -}
+    parseListOfField
+        :: Maybe Text
+        -- ^ Field label
+        -> Parser [a]
+    parseListOfField = fmap many parseField
+
 instance ParseField Bool
 instance ParseField Double
 instance ParseField Float
@@ -246,6 +256,28 @@ instance ParseField Integer
 instance ParseField Ordering
 instance ParseField ()
 instance ParseField Void
+
+instance ParseField String where
+    parseField = parseString "STRING"
+
+instance ParseField Char where
+    parseField m = do
+        let metavar = "CHAR"
+        let readM = do
+                s <- Options.readerAsk
+                case s of
+                    [c] -> return c
+                    _   -> Options.readerAbort Options.ShowHelpText
+        case m of
+            Nothing   -> do
+                let fs =  Options.metavar metavar
+                Options.argument readM fs
+            Just name -> do
+                let fs =  Options.metavar metavar
+                       <> Options.long (Data.Text.unpack name)
+                Options.option   readM fs
+
+    parseListOfField = parseString "STRING"
 
 instance ParseField Any where
     parseField = fmap (fmap Any) parseField
@@ -286,6 +318,7 @@ class ParseRecord a => ParseFields a where
     default parseFields :: ParseField a => Maybe Text -> Parser a
     parseFields = parseField
 
+instance ParseFields Char
 instance ParseFields Double
 instance ParseFields Float
 instance ParseFields Int
@@ -330,12 +363,12 @@ instance (Num a, ParseField a) => ParseFields (Product a) where
     parseFields = fmap (fmap mconcat . many . fmap Product) parseField
 
 instance ParseField a => ParseFields [a] where
-    parseFields = fmap many parseField
+    parseFields = parseListOfField
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
     `ParseRecord` instances
 -}
-newtype Only a = Only a deriving (Generic)
+newtype Only a = Only a deriving (Generic, Show)
 
 {-| This is a convenience function that you can use if you want to create a
     `ParseRecord` instance that just defers to the `ParseFields` instance for
@@ -366,8 +399,7 @@ class ParseRecord a where
 
 instance ParseFields a => ParseRecord (Only a)
 
--- TODO: Use `Generic` or `Only` for these instances?
--- TODO: Pay close attention to `ParseRecord` for `Bool`
+instance ParseRecord Char
 instance ParseRecord Double
 instance ParseRecord Float
 instance ParseRecord Int
