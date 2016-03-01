@@ -30,7 +30,7 @@ Library
         void                               < 0.8
     if impl(ghc < 7.8)
         Build-Depends:
-            singletons       >= 2.0.1   && < 2.1 ,
+            singletons       >= 0.10.0  && < 1.0 ,
             tagged           >= 0.8.3   && < 0.9
     Exposed-Modules: Options.Generic
     GHC-Options: -Wall
