@@ -1,7 +1,10 @@
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
@@ -180,17 +183,22 @@ module Options.Generic (
     , Last(..)
     , Sum(..)
     , Product(..)
+
+    -- * Help
+    , (<?>)(getField)
     ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (toLower, toUpper)
 import Data.Monoid
+import Data.Proxy
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Void (Void)
 import Filesystem.Path (FilePath)
 import GHC.Generics
+import GHC.TypeLits
 import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
@@ -209,6 +217,8 @@ auto = do
         Just x  -> return x
         Nothing -> Options.readerAbort Options.ShowHelpText
 
+type HelpMod = forall f b. Options.Mod f b
+
 {-| A class for all record fields that can be parsed from exactly one option or
     argument on the command line
 
@@ -218,31 +228,52 @@ auto = do
     language extension
 -}
 class ParseField a where
-    parseField
-        :: Maybe Text
+        --(forall f b. Options.Mod f b)
+    parseFieldH
+        :: HelpMod
+        -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseField :: (Typeable a, Read a) => Maybe Text -> Parser a
-    parseField m = do
+    default parseFieldH
+        :: (Typeable a, Read a)
+        => HelpMod
+        -> Maybe Text
+        -- ^ Field label
+        -> Parser a
+    parseFieldH h m = do
         let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
+                       <> h
                 Options.argument auto fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
+                       <> h
                 Options.option   auto fs
+    parseField
+        :: Maybe Text
+        -- ^ Field label
+        -> Parser a
+    parseField = parseFieldH mempty
 
     {-| The only reason for this method is to provide a special case for
         handling `String`s.  All other instances should just fall back on the
         default implementation for `parseListOfField`
     -}
+    parseListOfFieldH
+        :: HelpMod
+        -> Maybe Text
+        -- ^ Field label
+        -> Parser [a]
+    parseListOfFieldH h m = many (parseFieldH h m)
+
     parseListOfField
         :: Maybe Text
         -- ^ Field label
         -> Parser [a]
-    parseListOfField = fmap many parseField
+    parseListOfField = parseListOfFieldH mempty
 
 instance ParseField Bool
 instance ParseField Double
@@ -254,10 +285,10 @@ instance ParseField ()
 instance ParseField Void
 
 instance ParseField String where
-    parseField = parseString "STRING"
+    parseFieldH = parseStringH "STRING"
 
 instance ParseField Char where
-    parseField m = do
+    parseFieldH h m = do
         let metavar = "CHAR"
         let readM = do
                 s <- Options.readerAsk
@@ -267,38 +298,42 @@ instance ParseField Char where
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
+                       <> h
                 Options.argument readM fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
+                       <> h
                 Options.option   readM fs
 
-    parseListOfField = parseString "STRING"
+    parseListOfFieldH = parseStringH "STRING"
 
 instance ParseField Any where
-    parseField = fmap (fmap Any) parseField
+    parseFieldH h m = Any <$> parseFieldH h m
 instance ParseField All where
-    parseField = fmap (fmap All) parseField
+    parseFieldH h m = All <$> parseFieldH h m
 
-parseString :: String -> Maybe Text -> Parser String
-parseString metavar m =
+parseStringH :: String -> HelpMod -> Maybe Text -> Parser String
+parseStringH metavar h m =
     case m of
         Nothing   -> do
-            let fs = Options.metavar metavar
+            let fs =  Options.metavar metavar
+                   <> h
             Options.argument Options.str fs
         Just name -> do
             let fs =  Options.metavar metavar
                    <> Options.long (Data.Text.unpack name)
+                   <> h
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
-    parseField = fmap (fmap Data.Text.pack) (parseString "TEXT")
+    parseFieldH h m = Data.Text.pack <$> parseStringH "TEXT" h m
 
 instance ParseField Data.Text.Lazy.Text where
-    parseField = fmap (fmap Data.Text.Lazy.pack) (parseString "TEXT")
+    parseFieldH h m = Data.Text.Lazy.pack <$> parseStringH "TEXT" h m
 
 instance ParseField FilePath where
-    parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
+    parseFieldH h m = Filesystem.decodeString <$> parseStringH "FILEPATH" h m
 
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
@@ -307,12 +342,18 @@ instance ParseField FilePath where
     `ParseField`
 -}
 class ParseRecord a => ParseFields a where
+    parseFieldsH
+        :: HelpMod
+        -> Maybe Text
+        -- ^ Field label
+        -> Parser a
+    default parseFieldsH :: ParseField a => HelpMod -> Maybe Text -> Parser a
+    parseFieldsH = parseFieldH
     parseFields
         :: Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseFields :: ParseField a => Maybe Text -> Parser a
-    parseFields = parseField
+    parseFields = parseFieldsH mempty
 
 instance ParseFields Char
 instance ParseFields Double
@@ -326,40 +367,52 @@ instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
 
 instance ParseFields Bool where
-    parseFields m =
+    parseFieldsH h m =
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
+                       <> h
                 Options.argument auto fs
             Just name -> do
-                Options.switch (Options.long (Data.Text.unpack name))
+                Options.switch (Options.long (Data.Text.unpack name) <> h)
 
 instance ParseFields () where
-    parseFields _ = pure ()
+    parseFieldsH _ _ = pure ()
 
 instance ParseFields Any where
-    parseFields = fmap (fmap mconcat . many . fmap Any) parseField
+    parseFieldsH h m = (fmap mconcat . many . fmap Any) (parseFieldH h m)
 
 instance ParseFields All where
-    parseFields = fmap (fmap mconcat . many . fmap All) parseField
+    parseFieldsH h m = (fmap mconcat . many . fmap All) (parseFieldH h m)
 
 instance ParseField a => ParseFields (Maybe a) where
-    parseFields = fmap optional parseField
+    parseFieldsH h m = optional (parseFieldH h m)
 
 instance ParseField a => ParseFields (First a) where
-    parseFields = fmap (fmap mconcat . many . fmap (First . Just)) parseField
+    parseFieldsH h m = (fmap mconcat . many . fmap (First . Just)) (parseFieldH h m)
 
 instance ParseField a => ParseFields (Last a) where
-    parseFields = fmap (fmap mconcat . many . fmap (Last . Just)) parseField
+    parseFieldsH h m = (fmap mconcat . many . fmap (Last . Just)) (parseFieldH h m)
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
-    parseFields = fmap (fmap mconcat . many . fmap Sum) parseField
+    parseFieldsH h m = (fmap mconcat . many . fmap Sum) (parseFieldH h m)
 
 instance (Num a, ParseField a) => ParseFields (Product a) where
-    parseFields = fmap (fmap mconcat . many . fmap Product) parseField
+    parseFieldsH h m = (fmap mconcat . many . fmap Product) (parseFieldH h m)
 
 instance ParseField a => ParseFields [a] where
-    parseFields = parseListOfField
+    parseFieldsH = parseListOfFieldH
+
+newtype (<?>) (field :: *) (help :: Symbol) = Helped { getField :: field } deriving (Generic)
+instance Show field => Show (field <?> help) where show = show . getField
+
+instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
+    parseFieldH _ m = Helped <$> parseFieldH (Options.help (symbolVal (Proxy :: Proxy h))) m
+
+--instance (ParseField a, ParseFields a, KnownSymbol h) => ParseFields (a <?> h)
+instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
+    parseFieldsH _ m = Helped <$> parseFieldsH (Options.help (symbolVal (Proxy :: Proxy h))) m
+instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
     `ParseRecord` instances
