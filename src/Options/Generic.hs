@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveGeneric              #-}
@@ -198,7 +199,6 @@ import Data.Typeable (Typeable)
 import Data.Void (Void)
 import Filesystem.Path (FilePath)
 import GHC.Generics
-import GHC.TypeLits
 import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
@@ -209,6 +209,12 @@ import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
 import qualified Text.Read
+
+#if MIN_VERSION_base(4,7,0)
+import GHC.TypeLits
+#else
+import Data.Singletons.TypeLits
+#endif
 
 auto :: Read a => ReadM a
 auto = do
