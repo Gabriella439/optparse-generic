@@ -28,6 +28,7 @@ Library
         transformers         >= 0.2.0.0 && < 0.6 ,
         optparse-applicative >= 0.11.0  && < 0.13,
         time                 >= 1.5     && < 1.7,
-        void                               < 0.8
+        void                               < 0.8,
+        bytestring                         < 0.11
     Exposed-Modules: Options.Generic
     GHC-Options: -Wall

@@ -199,6 +199,7 @@ import qualified Data.Text.Lazy
 import qualified Data.Time.Calendar
 import qualified Data.Time.Format
 import qualified Data.Typeable
+import qualified Data.ByteString.Char8     as ByteString
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
@@ -302,6 +303,9 @@ instance ParseField Data.Text.Lazy.Text where
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
 
+instance ParseField ByteString.ByteString where
+    parseField = fmap (fmap ByteString.pack) (parseString "BYTESTRING")
+
 instance ParseField Data.Time.Calendar.Day where
     parseField m = do
         let metavar = "YYYY-MM-DD"
@@ -344,6 +348,7 @@ instance ParseFields Int
 instance ParseFields Integer
 instance ParseFields Ordering
 instance ParseFields Void
+instance ParseFields ByteString.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
@@ -450,6 +455,9 @@ instance ParseRecord All where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord FilePath where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord ByteString.ByteString where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord Data.Time.Calendar.Day where
