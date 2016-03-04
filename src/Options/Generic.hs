@@ -197,10 +197,12 @@ import Options.Applicative (Parser, ReadM)
 import qualified Data.Text
 import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy
+import qualified Data.Text.Lazy.Encoding
 import qualified Data.Time.Calendar
 import qualified Data.Time.Format
 import qualified Data.Typeable
 import qualified Data.ByteString
+import qualified Data.ByteString.Lazy
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
@@ -304,8 +306,14 @@ instance ParseField Data.Text.Text where
 instance ParseField Data.ByteString.ByteString where
     parseField = fmap (fmap (Data.Text.Encoding.encodeUtf8)) (parseText "UTF8-BYTESTRING")
 
+parseTextLazy :: String -> Maybe Text -> Parser Data.Text.Lazy.Text
+parseTextLazy metavar = fmap (fmap Data.Text.Lazy.pack) (parseString metavar)
+
 instance ParseField Data.Text.Lazy.Text where
-    parseField = fmap (fmap Data.Text.Lazy.pack) (parseString "TEXT")
+    parseField = parseTextLazy "TEXT"
+
+instance ParseField Data.ByteString.Lazy.ByteString where
+    parseField = fmap (fmap (Data.Text.Lazy.Encoding.encodeUtf8)) (parseTextLazy "UTF8-BYTESTRING")
 
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
@@ -353,6 +361,7 @@ instance ParseFields Integer
 instance ParseFields Ordering
 instance ParseFields Void
 instance ParseFields Data.ByteString.ByteString
+instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
@@ -462,6 +471,9 @@ instance ParseRecord FilePath where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord Data.ByteString.ByteString where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.ByteString.Lazy.ByteString where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord Data.Time.Calendar.Day where
