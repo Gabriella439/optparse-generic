@@ -195,11 +195,12 @@ import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
 import qualified Data.Text
+import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy
 import qualified Data.Time.Calendar
 import qualified Data.Time.Format
 import qualified Data.Typeable
-import qualified Data.ByteString.Char8     as ByteString
+import qualified Data.ByteString
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
@@ -294,17 +295,20 @@ parseString metavar m =
                    <> Options.long (Data.Text.unpack name)
             Options.option Options.str fs
 
+parseText :: String -> Maybe Text -> Parser Data.Text.Text
+parseText metavar = fmap (fmap Data.Text.pack) (parseString metavar)
+
 instance ParseField Data.Text.Text where
-    parseField = fmap (fmap Data.Text.pack) (parseString "TEXT")
+    parseField = parseText "TEXT"
+
+instance ParseField Data.ByteString.ByteString where
+    parseField = fmap (fmap (Data.Text.Encoding.encodeUtf8)) (parseText "UTF8-BYTESTRING")
 
 instance ParseField Data.Text.Lazy.Text where
     parseField = fmap (fmap Data.Text.Lazy.pack) (parseString "TEXT")
 
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
-
-instance ParseField ByteString.ByteString where
-    parseField = fmap (fmap ByteString.pack) (parseString "BYTESTRING")
 
 instance ParseField Data.Time.Calendar.Day where
     parseField m = do
@@ -348,7 +352,7 @@ instance ParseFields Int
 instance ParseFields Integer
 instance ParseFields Ordering
 instance ParseFields Void
-instance ParseFields ByteString.ByteString
+instance ParseFields Data.ByteString.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
@@ -457,7 +461,7 @@ instance ParseRecord All where
 instance ParseRecord FilePath where
     parseRecord = fmap getOnly parseRecord
 
-instance ParseRecord ByteString.ByteString where
+instance ParseRecord Data.ByteString.ByteString where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord Data.Time.Calendar.Day where
