@@ -186,7 +186,7 @@ module Options.Generic (
     , Product(..)
 
     -- * Help
-    , (<?>)(getField)
+    , (<?>)(..)
     ) where
 
 import Control.Applicative
@@ -235,18 +235,18 @@ type HelpMod = forall f b. Options.Mod f b
 -}
 class ParseField a where
         --(forall f b. Options.Mod f b)
-    parseFieldH
+    parseHelpfulField
         :: HelpMod
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseFieldH
+    default parseHelpfulField
         :: (Typeable a, Read a)
         => HelpMod
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    parseFieldH h m = do
+    parseHelpfulField h m = do
         let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
         case m of
             Nothing   -> do
@@ -262,24 +262,24 @@ class ParseField a where
         :: Maybe Text
         -- ^ Field label
         -> Parser a
-    parseField = parseFieldH mempty
+    parseField = parseHelpfulField mempty
 
     {-| The only reason for this method is to provide a special case for
         handling `String`s.  All other instances should just fall back on the
         default implementation for `parseListOfField`
     -}
-    parseListOfFieldH
+    parseListOfHelpfulField
         :: HelpMod
         -> Maybe Text
         -- ^ Field label
         -> Parser [a]
-    parseListOfFieldH h m = many (parseFieldH h m)
+    parseListOfHelpfulField h m = many (parseHelpfulField h m)
 
     parseListOfField
         :: Maybe Text
         -- ^ Field label
         -> Parser [a]
-    parseListOfField = parseListOfFieldH mempty
+    parseListOfField = parseListOfHelpfulField mempty
 
 instance ParseField Bool
 instance ParseField Double
@@ -291,10 +291,10 @@ instance ParseField ()
 instance ParseField Void
 
 instance ParseField String where
-    parseFieldH = parseStringH "STRING"
+    parseHelpfulField = parseHelpfulString "STRING"
 
 instance ParseField Char where
-    parseFieldH h m = do
+    parseHelpfulField h m = do
         let metavar = "CHAR"
         let readM = do
                 s <- Options.readerAsk
@@ -312,15 +312,15 @@ instance ParseField Char where
                        <> h
                 Options.option   readM fs
 
-    parseListOfFieldH = parseStringH "STRING"
+    parseListOfHelpfulField = parseHelpfulString "STRING"
 
 instance ParseField Any where
-    parseFieldH h m = Any <$> parseFieldH h m
+    parseHelpfulField h m = Any <$> parseHelpfulField h m
 instance ParseField All where
-    parseFieldH h m = All <$> parseFieldH h m
+    parseHelpfulField h m = All <$> parseHelpfulField h m
 
-parseStringH :: String -> HelpMod -> Maybe Text -> Parser String
-parseStringH metavar h m =
+parseHelpfulString :: String -> HelpMod -> Maybe Text -> Parser String
+parseHelpfulString metavar h m =
     case m of
         Nothing   -> do
             let fs =  Options.metavar metavar
@@ -333,13 +333,13 @@ parseStringH metavar h m =
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
-    parseFieldH h m = Data.Text.pack <$> parseStringH "TEXT" h m
+    parseHelpfulField h m = Data.Text.pack <$> parseHelpfulString "TEXT" h m
 
 instance ParseField Data.Text.Lazy.Text where
-    parseFieldH h m = Data.Text.Lazy.pack <$> parseStringH "TEXT" h m
+    parseHelpfulField h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m
 
 instance ParseField FilePath where
-    parseFieldH h m = Filesystem.decodeString <$> parseStringH "FILEPATH" h m
+    parseHelpfulField h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m
 
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
@@ -348,18 +348,18 @@ instance ParseField FilePath where
     `ParseField`
 -}
 class ParseRecord a => ParseFields a where
-    parseFieldsH
+    parseHelpfulFields
         :: HelpMod
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseFieldsH :: ParseField a => HelpMod -> Maybe Text -> Parser a
-    parseFieldsH = parseFieldH
+    default parseHelpfulFields :: ParseField a => HelpMod -> Maybe Text -> Parser a
+    parseHelpfulFields = parseHelpfulField
     parseFields
         :: Maybe Text
         -- ^ Field label
         -> Parser a
-    parseFields = parseFieldsH mempty
+    parseFields = parseHelpfulFields mempty
 
 instance ParseFields Char
 instance ParseFields Double
@@ -373,7 +373,7 @@ instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
 
 instance ParseFields Bool where
-    parseFieldsH h m =
+    parseHelpfulFields h m =
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
@@ -383,41 +383,41 @@ instance ParseFields Bool where
                 Options.switch (Options.long (Data.Text.unpack name) <> h)
 
 instance ParseFields () where
-    parseFieldsH _ _ = pure ()
+    parseHelpfulFields _ _ = pure ()
 
 instance ParseFields Any where
-    parseFieldsH h m = (fmap mconcat . many . fmap Any) (parseFieldH h m)
+    parseHelpfulFields h m = (fmap mconcat . many . fmap Any) (parseHelpfulField h m)
 
 instance ParseFields All where
-    parseFieldsH h m = (fmap mconcat . many . fmap All) (parseFieldH h m)
+    parseHelpfulFields h m = (fmap mconcat . many . fmap All) (parseHelpfulField h m)
 
 instance ParseField a => ParseFields (Maybe a) where
-    parseFieldsH h m = optional (parseFieldH h m)
+    parseHelpfulFields h m = optional (parseHelpfulField h m)
 
 instance ParseField a => ParseFields (First a) where
-    parseFieldsH h m = (fmap mconcat . many . fmap (First . Just)) (parseFieldH h m)
+    parseHelpfulFields h m = (fmap mconcat . many . fmap (First . Just)) (parseHelpfulField h m)
 
 instance ParseField a => ParseFields (Last a) where
-    parseFieldsH h m = (fmap mconcat . many . fmap (Last . Just)) (parseFieldH h m)
+    parseHelpfulFields h m = (fmap mconcat . many . fmap (Last . Just)) (parseHelpfulField h m)
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
-    parseFieldsH h m = (fmap mconcat . many . fmap Sum) (parseFieldH h m)
+    parseHelpfulFields h m = (fmap mconcat . many . fmap Sum) (parseHelpfulField h m)
 
 instance (Num a, ParseField a) => ParseFields (Product a) where
-    parseFieldsH h m = (fmap mconcat . many . fmap Product) (parseFieldH h m)
+    parseHelpfulFields h m = (fmap mconcat . many . fmap Product) (parseHelpfulField h m)
 
 instance ParseField a => ParseFields [a] where
-    parseFieldsH = parseListOfFieldH
+    parseHelpfulFields = parseListOfHelpfulField
 
-newtype (<?>) (field :: *) (help :: Symbol) = Helped { getField :: field } deriving (Generic)
-instance Show field => Show (field <?> help) where show = show . getField
+newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic)
+instance Show field => Show (field <?> help) where show = show . unHelpful
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
-    parseFieldH _ m = Helped <$> parseFieldH (Options.help (symbolVal (Proxy :: Proxy h))) m
+    parseHelpfulField _ m = Helpful <$> parseHelpfulField (Options.help (symbolVal (Proxy :: Proxy h))) m
 
 --instance (ParseField a, ParseFields a, KnownSymbol h) => ParseFields (a <?> h)
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
-    parseFieldsH _ m = Helped <$> parseFieldsH (Options.help (symbolVal (Proxy :: Proxy h))) m
+    parseHelpfulFields _ m = Helpful <$> parseHelpfulFields (Options.help (symbolVal (Proxy :: Proxy h))) m
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
