@@ -223,8 +223,6 @@ auto = do
         Just x  -> return x
         Nothing -> Options.readerAbort Options.ShowHelpText
 
-type HelpMod = forall f b. Options.Mod f b
-
 {-| A class for all record fields that can be parsed from exactly one option or
     argument on the command line
 
@@ -236,13 +234,13 @@ type HelpMod = forall f b. Options.Mod f b
 class ParseField a where
         --(forall f b. Options.Mod f b)
     parseHelpfulField
-        :: HelpMod
+        :: Maybe String
         -> Maybe Text
         -- ^ Field label
         -> Parser a
     default parseHelpfulField
         :: (Typeable a, Read a)
-        => HelpMod
+        => Maybe String
         -> Maybe Text
         -- ^ Field label
         -> Parser a
@@ -251,12 +249,12 @@ class ParseField a where
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
-                       <> h
+                       <> maybe mempty Options.help h
                 Options.argument auto fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
-                       <> h
+                       <> maybe mempty Options.help h
                 Options.option   auto fs
     parseField
         :: Maybe Text
@@ -269,7 +267,7 @@ class ParseField a where
         default implementation for `parseListOfField`
     -}
     parseListOfHelpfulField
-        :: HelpMod
+        :: Maybe String
         -> Maybe Text
         -- ^ Field label
         -> Parser [a]
@@ -279,7 +277,7 @@ class ParseField a where
         :: Maybe Text
         -- ^ Field label
         -> Parser [a]
-    parseListOfField = parseListOfHelpfulField mempty
+    parseListOfField = parseListOfHelpfulField Nothing
 
 instance ParseField Bool
 instance ParseField Double
@@ -304,12 +302,12 @@ instance ParseField Char where
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
-                       <> h
+                       <> maybe mempty Options.help h
                 Options.argument readM fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
-                       <> h
+                       <> maybe mempty Options.help h
                 Options.option   readM fs
 
     parseListOfHelpfulField = parseHelpfulString "STRING"
@@ -319,17 +317,17 @@ instance ParseField Any where
 instance ParseField All where
     parseHelpfulField h m = All <$> parseHelpfulField h m
 
-parseHelpfulString :: String -> HelpMod -> Maybe Text -> Parser String
+parseHelpfulString :: String -> Maybe String -> Maybe Text -> Parser String
 parseHelpfulString metavar h m =
     case m of
         Nothing   -> do
             let fs =  Options.metavar metavar
-                   <> h
+                   <> maybe mempty Options.help h
             Options.argument Options.str fs
         Just name -> do
             let fs =  Options.metavar metavar
                    <> Options.long (Data.Text.unpack name)
-                   <> h
+                   <> maybe mempty Options.help h
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
@@ -349,11 +347,11 @@ instance ParseField FilePath where
 -}
 class ParseRecord a => ParseFields a where
     parseHelpfulFields
-        :: HelpMod
+        :: Maybe String
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseHelpfulFields :: ParseField a => HelpMod -> Maybe Text -> Parser a
+    default parseHelpfulFields :: ParseField a => Maybe String -> Maybe Text -> Parser a
     parseHelpfulFields = parseHelpfulField
     parseFields
         :: Maybe Text
@@ -377,10 +375,12 @@ instance ParseFields Bool where
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
-                       <> h
+                       <> maybe mempty Options.help h
                 Options.argument auto fs
             Just name -> do
-                Options.switch (Options.long (Data.Text.unpack name) <> h)
+                Options.switch $
+                  Options.long (Data.Text.unpack name)
+                  <> maybe mempty Options.help h
 
 instance ParseFields () where
     parseHelpfulFields _ _ = pure ()
@@ -413,11 +413,11 @@ newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } der
 instance Show field => Show (field <?> help) where show = show . unHelpful
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
-    parseHelpfulField _ m = Helpful <$> parseHelpfulField (Options.help (symbolVal (Proxy :: Proxy h))) m
+    parseHelpfulField _ m = Helpful <$> parseHelpfulField (Just (symbolVal (Proxy :: Proxy h))) m
 
 --instance (ParseField a, ParseFields a, KnownSymbol h) => ParseFields (a <?> h)
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
-    parseHelpfulFields _ m = Helpful <$> parseHelpfulFields (Options.help (symbolVal (Proxy :: Proxy h))) m
+    parseHelpfulFields _ m = Helpful <$> parseHelpfulFields (Just (symbolVal (Proxy :: Proxy h))) m
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
