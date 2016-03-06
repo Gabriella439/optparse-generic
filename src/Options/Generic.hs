@@ -415,7 +415,6 @@ instance Show field => Show (field <?> help) where show = show . unHelpful
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseHelpfulField _ m = Helpful <$> parseHelpfulField (Just (symbolVal (Proxy :: Proxy h))) m
 
---instance (ParseField a, ParseFields a, KnownSymbol h) => ParseFields (a <?> h)
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
     parseHelpfulFields _ m = Helpful <$> parseHelpfulFields (Just (symbolVal (Proxy :: Proxy h))) m
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
