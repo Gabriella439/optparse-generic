@@ -360,7 +360,7 @@ class ParseRecord a => ParseFields a where
         :: Maybe Text
         -- ^ Field label
         -> Parser a
-    parseFields = parseHelpfulFields mempty
+    parseFields = parseHelpfulFields Nothing
 
 instance ParseFields Char
 instance ParseFields Double
