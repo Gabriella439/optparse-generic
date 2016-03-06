@@ -4,10 +4,10 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeOperators              #-}
 
 -- | This library auto-generates command-line parsers for data types using
 -- Haskell's built-in support for generic programming.  The best way to
