@@ -232,15 +232,16 @@ auto = do
     language extension
 -}
 class ParseField a where
-        --(forall f b. Options.Mod f b)
     parseHelpfulField
         :: Maybe String
+        -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
     default parseHelpfulField
         :: (Typeable a, Read a)
         => Maybe String
+        -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
@@ -268,6 +269,7 @@ class ParseField a where
     -}
     parseListOfHelpfulField
         :: Maybe String
+        -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser [a]
@@ -348,6 +350,7 @@ instance ParseField FilePath where
 class ParseRecord a => ParseFields a where
     parseHelpfulFields
         :: Maybe String
+        -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
