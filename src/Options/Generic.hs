@@ -297,23 +297,17 @@ parseString metavar m =
                    <> Options.long (Data.Text.unpack name)
             Options.option Options.str fs
 
-parseText :: String -> Maybe Text -> Parser Data.Text.Text
-parseText metavar = fmap (fmap Data.Text.pack) (parseString metavar)
-
 instance ParseField Data.Text.Text where
-    parseField = parseText "TEXT"
+    parseField = fmap (fmap Data.Text.pack) (parseString "TEXT")
 
 instance ParseField Data.ByteString.ByteString where
-    parseField = fmap (fmap (Data.Text.Encoding.encodeUtf8)) (parseText "UTF8-BYTESTRING")
-
-parseTextLazy :: String -> Maybe Text -> Parser Data.Text.Lazy.Text
-parseTextLazy metavar = fmap (fmap Data.Text.Lazy.pack) (parseString metavar)
+    parseField = fmap (fmap Data.Text.Encoding.encodeUtf8) parseField
 
 instance ParseField Data.Text.Lazy.Text where
-    parseField = parseTextLazy "TEXT"
+    parseField = fmap (fmap Data.Text.Lazy.pack) (parseString "TEXT")
 
 instance ParseField Data.ByteString.Lazy.ByteString where
-    parseField = fmap (fmap (Data.Text.Lazy.Encoding.encodeUtf8)) (parseTextLazy "UTF8-BYTESTRING")
+    parseField = fmap (fmap Data.Text.Lazy.Encoding.encodeUtf8) parseField
 
 instance ParseField FilePath where
     parseField = fmap (fmap Filesystem.decodeString) (parseString "FILEPATH")
