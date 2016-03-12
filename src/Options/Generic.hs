@@ -212,6 +212,9 @@ module Options.Generic (
     , Only(..)
     , getOnly
 
+    -- * Help
+    , (<?>)(..)
+
     -- * Re-exports
     , Generic
     , Text
@@ -221,9 +224,6 @@ module Options.Generic (
     , Last(..)
     , Sum(..)
     , Product(..)
-
-    -- * Help
-    , (<?>)(..)
     ) where
 
 import Control.Applicative
