@@ -1,4 +1,4 @@
-# optparse-generic v1.0.0
+# optparse-generic v1.0.1
 
 Use this library to auto-generate a command-line interface that parses a typed
 value.  This library uses Haskell's support for generic programming to
