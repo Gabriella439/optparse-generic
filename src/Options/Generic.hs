@@ -47,6 +47,44 @@
 -- > Available options:
 -- >   -h,--help                Show this help text
 --
+-- You can also add help descriptions to each field, like this:
+--
+-- > {-# LANGUAGE DataKinds         #-}
+-- > {-# LANGUAGE DeriveGeneric     #-}
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE TypeOperators     #-}
+-- > 
+-- > import Options.Generic
+-- > 
+-- > data Example = Example
+-- >     { foo :: Int    <?> "Documentation for the foo flag"
+-- >     , bar :: Double <?> "Documentation for the bar flag"
+-- >     } deriving (Generic, Show)
+-- > 
+-- > instance ParseRecord Example
+-- > 
+-- > main = do
+-- >     x <- getRecord "Test program"
+-- >     print (x :: Example)
+--
+-- ... which produces the following @--help@ output:
+--
+-- > $ stack runghc Example.hs -- --help
+-- > Test program
+-- > 
+-- > Usage: Example.hs --foo INT --bar DOUBLE
+-- > 
+-- > Available options:
+-- >   -h,--help                Show this help text
+-- >   --foo INT                Documentation for the foo flag
+-- >   --bar DOUBLE             Documentation for the bar flag
+--
+-- However, any fields you document will be wrapped in the `Helpful`
+-- constructor:
+--
+-- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
+-- > Example {foo = Helpful {unHelpful = 1}, bar = Helpful {unHelpful = 2.5}}
+--
 -- For the following examples I encourage you to test what @--help@ output they
 -- generate.
 --
@@ -435,8 +473,15 @@ instance (Num a, ParseField a) => ParseFields (Product a) where
 instance ParseField a => ParseFields [a] where
     parseHelpfulFields = parseListOfHelpfulField
 
-newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic)
-instance Show field => Show (field <?> help) where show = show . unHelpful
+{-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
+    representing the help description for that field:
+
+> data Example = Example
+>     { foo :: Int    <?> "Documentation for the foo flag"
+>     , bar :: Double <?> "Documentation for the bar flag"
+>     } deriving (Generic, Show)
+-}
+newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseHelpfulField _ m = Helpful <$>
