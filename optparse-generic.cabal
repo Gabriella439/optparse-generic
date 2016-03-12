@@ -29,5 +29,9 @@ Library
         optparse-applicative >= 0.11.0  && < 0.13,
         time                 >= 1.5     && < 1.7,
         void                               < 0.8
+    if impl(ghc < 7.8)
+        Build-Depends:
+            singletons       >= 0.10.0  && < 1.0 ,
+            tagged           >= 0.8.3   && < 0.9
     Exposed-Modules: Options.Generic
     GHC-Options: -Wall
