@@ -508,7 +508,7 @@ instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => 
 
         let parser = Options.subparser subparserFields
 
-        fmap (L1 . M1) parser <|> genericParseRecord
+        fmap (L1 . M1) parser <|> fmap R1 genericParseRecord
 
 -- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => GenericParseRecord ((f :+: g) :+: M1 C c h) where
@@ -526,7 +526,7 @@ instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => 
 
         let parser = Options.subparser subparserFields
 
-        genericParseRecord <|> fmap (R1 . M1) parser
+        fmap L1 genericParseRecord <|> fmap (R1 . M1) parser
 
 -- See: [NOTE - Sums]
 instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRecord f2) => GenericParseRecord (M1 C c1 f1 :+: M1 C c2 f2) where
