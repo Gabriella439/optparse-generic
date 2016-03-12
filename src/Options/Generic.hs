@@ -74,13 +74,13 @@
 --
 -- This gives the following behavior:
 --
--- > $ stack runghc Example.hs --   \
--- >       --switch                 \
--- >       --optional 1             \
--- >       --list    1 --list    2  \
--- >       --first   1 --first   2  \
--- >       --last    1 --last    2  \
--- >       --sum     1 --sum     2  \
+-- > $ stack runghc Example.hs --
+-- >       --switch
+-- >       --optional 1
+-- >       --list    1 --list    2
+-- >       --first   1 --first   2
+-- >       --last    1 --last    2
+-- >       --sum     1 --sum     2
 -- >       --product 1 --product 2
 -- > Example {switch = True, list = [1,2], optional = Just 1, first = First 
 -- > {getFirst = Just 1}, last = Last {getLast = Just 2}, sum = Sum {getSum =
