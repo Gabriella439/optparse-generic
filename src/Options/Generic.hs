@@ -240,10 +240,14 @@ import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
 import qualified Data.Text
+import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy
+import qualified Data.Text.Lazy.Encoding
 import qualified Data.Time.Calendar
 import qualified Data.Time.Format
 import qualified Data.Typeable
+import qualified Data.ByteString
+import qualified Data.ByteString.Lazy
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
@@ -363,8 +367,14 @@ parseHelpfulString metavar h m =
 instance ParseField Data.Text.Text where
     parseField h m = Data.Text.pack <$> parseHelpfulString "TEXT" h m
 
+instance ParseField Data.ByteString.ByteString where
+    parseField h m = fmap Data.Text.Encoding.encodeUtf8 (parseField h m)
+
 instance ParseField Data.Text.Lazy.Text where
     parseField h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m
+
+instance ParseField Data.ByteString.Lazy.ByteString where
+    parseField h m = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m)
 
 instance ParseField FilePath where
     parseField h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m
@@ -415,6 +425,8 @@ instance ParseFields Int
 instance ParseFields Integer
 instance ParseFields Ordering
 instance ParseFields Void
+instance ParseFields Data.ByteString.ByteString
+instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
@@ -543,6 +555,12 @@ instance ParseRecord All where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord FilePath where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.ByteString.ByteString where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.ByteString.Lazy.ByteString where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord Data.Time.Calendar.Day where
