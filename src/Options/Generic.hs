@@ -493,6 +493,11 @@ instance GenericParseRecord f => GenericParseRecord (M1 C c f) where
     genericParseRecord = fmap M1 genericParseRecord
 
 -- See: [NOTE - Sums]
+instance (GenericParseRecord (f :+: g), GenericParseRecord (h :+: i)) => GenericParseRecord ((f :+: g) :+: (h :+: i)) where
+    genericParseRecord = do
+        fmap L1 genericParseRecord <|> fmap R1 genericParseRecord
+
+-- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => GenericParseRecord (M1 C c f :+: (g :+: h)) where
     genericParseRecord = do
         let m :: M1 i c f a
