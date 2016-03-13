@@ -47,6 +47,44 @@
 -- > Available options:
 -- >   -h,--help                Show this help text
 --
+-- You can also add help descriptions to each field, like this:
+--
+-- > {-# LANGUAGE DataKinds         #-}
+-- > {-# LANGUAGE DeriveGeneric     #-}
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE TypeOperators     #-}
+-- > 
+-- > import Options.Generic
+-- > 
+-- > data Example = Example
+-- >     { foo :: Int    <?> "Documentation for the foo flag"
+-- >     , bar :: Double <?> "Documentation for the bar flag"
+-- >     } deriving (Generic, Show)
+-- > 
+-- > instance ParseRecord Example
+-- > 
+-- > main = do
+-- >     x <- getRecord "Test program"
+-- >     print (x :: Example)
+--
+-- ... which produces the following @--help@ output:
+--
+-- > $ stack runghc Example.hs -- --help
+-- > Test program
+-- > 
+-- > Usage: Example.hs --foo INT --bar DOUBLE
+-- > 
+-- > Available options:
+-- >   -h,--help                Show this help text
+-- >   --foo INT                Documentation for the foo flag
+-- >   --bar DOUBLE             Documentation for the bar flag
+--
+-- However, any fields you document will be wrapped in the `Helpful`
+-- constructor:
+--
+-- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
+-- > Example {foo = Helpful {unHelpful = 1}, bar = Helpful {unHelpful = 2.5}}
+--
 -- For the following examples I encourage you to test what @--help@ output they
 -- generate.
 --
@@ -74,13 +112,13 @@
 --
 -- This gives the following behavior:
 --
--- > $ stack runghc Example.hs --   \
--- >       --switch                 \
--- >       --optional 1             \
--- >       --list    1 --list    2  \
--- >       --first   1 --first   2  \
--- >       --last    1 --last    2  \
--- >       --sum     1 --sum     2  \
+-- > $ stack runghc Example.hs --
+-- >       --switch
+-- >       --optional 1
+-- >       --list    1 --list    2
+-- >       --first   1 --first   2
+-- >       --last    1 --last    2
+-- >       --sum     1 --sum     2
 -- >       --product 1 --product 2
 -- > Example {switch = True, list = [1,2], optional = Just 1, first = First 
 -- > {getFirst = Just 1}, last = Last {getLast = Just 2}, sum = Sum {getSum =
@@ -174,6 +212,9 @@ module Options.Generic (
     , Only(..)
     , getOnly
 
+    -- * Help
+    , (<?>)(..)
+
     -- * Re-exports
     , Generic
     , Text
@@ -183,9 +224,6 @@ module Options.Generic (
     , Last(..)
     , Sum(..)
     , Product(..)
-
-    -- * Help
-    , (<?>)(..)
     ) where
 
 import Control.Applicative
@@ -202,8 +240,14 @@ import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
 import qualified Data.Text
+import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy
+import qualified Data.Text.Lazy.Encoding
+import qualified Data.Time.Calendar
+import qualified Data.Time.Format
 import qualified Data.Typeable
+import qualified Data.ByteString
+import qualified Data.ByteString.Lazy
 import qualified Filesystem.Path.CurrentOS as Filesystem
 import qualified Options.Applicative       as Options
 import qualified Options.Applicative.Types as Options
@@ -231,20 +275,20 @@ auto = do
     language extension
 -}
 class ParseField a where
-    parseHelpfulField
+    parseField
         :: Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseHelpfulField
+    default parseField
         :: (Typeable a, Read a)
         => Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    parseHelpfulField h m = do
+    parseField h m = do
         let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
         case m of
             Nothing   -> do
@@ -256,29 +300,18 @@ class ParseField a where
                        <> Options.long (Data.Text.unpack name)
                        <> maybe mempty (Options.help . Data.Text.unpack) h
                 Options.option   auto fs
-    parseField
-        :: Maybe Text
-        -- ^ Field label
-        -> Parser a
-    parseField = parseHelpfulField mempty
 
     {-| The only reason for this method is to provide a special case for
         handling `String`s.  All other instances should just fall back on the
         default implementation for `parseListOfField`
     -}
-    parseListOfHelpfulField
+    parseListOfField
         :: Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser [a]
-    parseListOfHelpfulField h m = many (parseHelpfulField h m)
-
-    parseListOfField
-        :: Maybe Text
-        -- ^ Field label
-        -> Parser [a]
-    parseListOfField = parseListOfHelpfulField Nothing
+    parseListOfField h m = many (parseField h m)
 
 instance ParseField Bool
 instance ParseField Double
@@ -290,10 +323,10 @@ instance ParseField ()
 instance ParseField Void
 
 instance ParseField String where
-    parseHelpfulField = parseHelpfulString "STRING"
+    parseField = parseHelpfulString "STRING"
 
 instance ParseField Char where
-    parseHelpfulField h m = do
+    parseField h m = do
         let metavar = "CHAR"
         let readM = do
                 s <- Options.readerAsk
@@ -311,12 +344,12 @@ instance ParseField Char where
                        <> maybe mempty (Options.help . Data.Text.unpack) h
                 Options.option   readM fs
 
-    parseListOfHelpfulField = parseHelpfulString "STRING"
+    parseListOfField = parseHelpfulString "STRING"
 
 instance ParseField Any where
-    parseHelpfulField h m = Any <$> parseHelpfulField h m
+    parseField h m = Any <$> parseField h m
 instance ParseField All where
-    parseHelpfulField h m = All <$> parseHelpfulField h m
+    parseField h m = All <$> parseField h m
 
 parseHelpfulString :: String -> Maybe Text -> Maybe Text -> Parser String
 parseHelpfulString metavar h m =
@@ -332,13 +365,42 @@ parseHelpfulString metavar h m =
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
-    parseHelpfulField h m = Data.Text.pack <$> parseHelpfulString "TEXT" h m
+    parseField h m = Data.Text.pack <$> parseHelpfulString "TEXT" h m
+
+instance ParseField Data.ByteString.ByteString where
+    parseField h m = fmap Data.Text.Encoding.encodeUtf8 (parseField h m)
 
 instance ParseField Data.Text.Lazy.Text where
-    parseHelpfulField h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m
+    parseField h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m
+
+instance ParseField Data.ByteString.Lazy.ByteString where
+    parseField h m = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m)
 
 instance ParseField FilePath where
-    parseHelpfulField h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m
+    parseField h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m
+
+instance ParseField Data.Time.Calendar.Day where
+    parseField h m = do
+        let metavar = "YYYY-MM-DD"
+        case m of
+            Nothing   -> do
+                let fs =  Options.metavar metavar
+                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                Options.argument iso8601Day fs
+            Just name -> do
+                let fs =  Options.metavar metavar
+                       <> Options.long (Data.Text.unpack name)
+                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                Options.option   iso8601Day fs
+        where
+        iso8601Day = Options.eitherReader
+                   $ runReadS . Data.Time.Format.readSTime
+                                  False
+                                  Data.Time.Format.defaultTimeLocale
+                                  "%F"
+
+        runReadS [(day, "")] = Right day
+        runReadS _           = Left "expected YYYY-MM-DD"
 
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
@@ -347,19 +409,14 @@ instance ParseField FilePath where
     `ParseField`
 -}
 class ParseRecord a => ParseFields a where
-    parseHelpfulFields
+    parseFields
         :: Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseHelpfulFields :: ParseField a => Maybe Text -> Maybe Text -> Parser a
-    parseHelpfulFields = parseHelpfulField
-    parseFields
-        :: Maybe Text
-        -- ^ Field label
-        -> Parser a
-    parseFields = parseHelpfulFields Nothing
+    default parseFields :: ParseField a => Maybe Text -> Maybe Text -> Parser a
+    parseFields = parseField
 
 instance ParseFields Char
 instance ParseFields Double
@@ -368,12 +425,15 @@ instance ParseFields Int
 instance ParseFields Integer
 instance ParseFields Ordering
 instance ParseFields Void
+instance ParseFields Data.ByteString.ByteString
+instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
+instance ParseFields Data.Time.Calendar.Day
 
 instance ParseFields Bool where
-    parseHelpfulFields h m =
+    parseFields h m =
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
@@ -385,42 +445,49 @@ instance ParseFields Bool where
                   <> maybe mempty (Options.help . Data.Text.unpack) h
 
 instance ParseFields () where
-    parseHelpfulFields _ _ = pure ()
+    parseFields _ _ = pure ()
 
 instance ParseFields Any where
-    parseHelpfulFields h m = (fmap mconcat . many . fmap Any) (parseHelpfulField h m)
+    parseFields h m = (fmap mconcat . many . fmap Any) (parseField h m)
 
 instance ParseFields All where
-    parseHelpfulFields h m = (fmap mconcat . many . fmap All) (parseHelpfulField h m)
+    parseFields h m = (fmap mconcat . many . fmap All) (parseField h m)
 
 instance ParseField a => ParseFields (Maybe a) where
-    parseHelpfulFields h m = optional (parseHelpfulField h m)
+    parseFields h m = optional (parseField h m)
 
 instance ParseField a => ParseFields (First a) where
-    parseHelpfulFields h m = (fmap mconcat . many . fmap (First . Just)) (parseHelpfulField h m)
+    parseFields h m = (fmap mconcat . many . fmap (First . Just)) (parseField h m)
 
 instance ParseField a => ParseFields (Last a) where
-    parseHelpfulFields h m = (fmap mconcat . many . fmap (Last . Just)) (parseHelpfulField h m)
+    parseFields h m = (fmap mconcat . many . fmap (Last . Just)) (parseField h m)
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
-    parseHelpfulFields h m = (fmap mconcat . many . fmap Sum) (parseHelpfulField h m)
+    parseFields h m = (fmap mconcat . many . fmap Sum) (parseField h m)
 
 instance (Num a, ParseField a) => ParseFields (Product a) where
-    parseHelpfulFields h m = (fmap mconcat . many . fmap Product) (parseHelpfulField h m)
+    parseFields h m = (fmap mconcat . many . fmap Product) (parseField h m)
 
 instance ParseField a => ParseFields [a] where
-    parseHelpfulFields = parseListOfHelpfulField
+    parseFields = parseListOfField
 
-newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic)
-instance Show field => Show (field <?> help) where show = show . unHelpful
+{-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
+    representing the help description for that field:
+
+> data Example = Example
+>     { foo :: Int    <?> "Documentation for the foo flag"
+>     , bar :: Double <?> "Documentation for the bar flag"
+>     } deriving (Generic, Show)
+-}
+newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
-    parseHelpfulField _ m = Helpful <$>
-      parseHelpfulField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
+    parseField _ m = Helpful <$>
+      parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
 
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
-    parseHelpfulFields _ m = Helpful <$>
-      parseHelpfulFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
+    parseFields _ m = Helpful <$>
+      parseFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
@@ -457,10 +524,14 @@ class ParseRecord a where
 
 instance ParseFields a => ParseRecord (Only a)
 
-instance ParseRecord Char
-instance ParseRecord Double
-instance ParseRecord Float
-instance ParseRecord Int
+instance ParseRecord Char where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Double where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Float where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Int where
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Ordering
 instance ParseRecord Void
 instance ParseRecord ()
@@ -484,6 +555,15 @@ instance ParseRecord All where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord FilePath where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.ByteString.ByteString where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.ByteString.Lazy.ByteString where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Data.Time.Calendar.Day where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseField a => ParseRecord (Maybe a) where
@@ -524,6 +604,11 @@ instance GenericParseRecord f => GenericParseRecord (M1 C c f) where
     genericParseRecord = fmap M1 genericParseRecord
 
 -- See: [NOTE - Sums]
+instance (GenericParseRecord (f :+: g), GenericParseRecord (h :+: i)) => GenericParseRecord ((f :+: g) :+: (h :+: i)) where
+    genericParseRecord = do
+        fmap L1 genericParseRecord <|> fmap R1 genericParseRecord
+
+-- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => GenericParseRecord (M1 C c f :+: (g :+: h)) where
     genericParseRecord = do
         let m :: M1 i c f a
@@ -539,7 +624,7 @@ instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => 
 
         let parser = Options.subparser subparserFields
 
-        fmap (L1 . M1) parser <|> genericParseRecord
+        fmap (L1 . M1) parser <|> fmap R1 genericParseRecord
 
 -- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => GenericParseRecord ((f :+: g) :+: M1 C c h) where
@@ -557,7 +642,7 @@ instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => 
 
         let parser = Options.subparser subparserFields
 
-        genericParseRecord <|> fmap (R1 . M1) parser
+        fmap L1 genericParseRecord <|> fmap (R1 . M1) parser
 
 -- See: [NOTE - Sums]
 instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRecord f2) => GenericParseRecord (M1 C c1 f1 :+: M1 C c2 f2) where
@@ -599,7 +684,7 @@ instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) whe
         let label = case (selName m) of
                 ""   -> Nothing
                 name -> Just (Data.Text.pack name)
-        fmap (M1 . K1) (parseFields label)
+        fmap (M1 . K1) (parseFields Nothing label)
 
 {- [NOTE - Sums]
 
