@@ -515,13 +515,13 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 newtype Default a = Default { unDefault :: a } deriving (Generic, Show)
 
 class KnownDefault a where
-  def :: Default a
+  def :: a
 
 instance (ParseField a, KnownDefault a) => ParseField (Default a) where
-    parseField _ h m = Default <$> parseField (Just (unDefault def)) h m
+    parseField _ h m = Default <$> parseField (Just def) h m
 
 instance (ParseFields a, KnownDefault a) => ParseFields (Default a) where
-    parseFields _ h m = Default <$> parseFields (Just (unDefault def)) h m
+    parseFields _ h m = Default <$> parseFields (Just def) h m
 
 instance (ParseFields a, KnownDefault a) => ParseRecord (Default a)
 
