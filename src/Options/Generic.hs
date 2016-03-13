@@ -215,6 +215,10 @@ module Options.Generic (
     -- * Help
     , (<?>)(..)
 
+    -- * Default
+    , Default(..)
+    , KnownDefault(..)
+
     -- * Re-exports
     , Generic
     , Text
@@ -276,29 +280,35 @@ auto = do
 -}
 class ParseField a where
     parseField
-        :: Maybe Text
+        :: Maybe a
+        -- ^ Default value
+        -> Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
     default parseField
         :: (Typeable a, Read a)
-        => Maybe Text
+        => Maybe a
+        -- ^ Default value
+        -> Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    parseField h m = do
+    parseField v h m = do
         let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.argument auto fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.option   auto fs
 
     {-| The only reason for this method is to provide a special case for
@@ -306,12 +316,14 @@ class ParseField a where
         default implementation for `parseListOfField`
     -}
     parseListOfField
-        :: Maybe Text
+        :: Maybe [a]
+        -- ^ Default value
+        -> Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser [a]
-    parseListOfField h m = many (parseField h m)
+    parseListOfField _ h m = many (parseField Nothing h m)
 
 instance ParseField Bool
 instance ParseField Double
@@ -326,7 +338,7 @@ instance ParseField String where
     parseField = parseHelpfulString "STRING"
 
 instance ParseField Char where
-    parseField h m = do
+    parseField v h m = do
         let metavar = "CHAR"
         let readM = do
                 s <- Options.readerAsk
@@ -337,60 +349,66 @@ instance ParseField Char where
             Nothing   -> do
                 let fs =  Options.metavar metavar
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.argument readM fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.option   readM fs
 
     parseListOfField = parseHelpfulString "STRING"
 
 instance ParseField Any where
-    parseField h m = Any <$> parseField h m
+    parseField _ h m = Any <$> parseField Nothing h m
 instance ParseField All where
-    parseField h m = All <$> parseField h m
+    parseField _ h m = All <$> parseField Nothing h m
 
-parseHelpfulString :: String -> Maybe Text -> Maybe Text -> Parser String
-parseHelpfulString metavar h m =
+parseHelpfulString :: String -> Maybe String -> Maybe Text -> Maybe Text -> Parser String
+parseHelpfulString metavar v h m =
     case m of
         Nothing   -> do
             let fs =  Options.metavar metavar
                    <> maybe mempty (Options.help . Data.Text.unpack) h
+                   <> maybe mempty Options.value v
             Options.argument Options.str fs
         Just name -> do
             let fs =  Options.metavar metavar
                    <> Options.long (Data.Text.unpack name)
                    <> maybe mempty (Options.help . Data.Text.unpack) h
+                   <> maybe mempty Options.value v
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
-    parseField h m = Data.Text.pack <$> parseHelpfulString "TEXT" h m
+    parseField v h m = Data.Text.pack <$> parseHelpfulString "TEXT" (fmap Data.Text.unpack v) h m
 
 instance ParseField Data.ByteString.ByteString where
-    parseField h m = fmap Data.Text.Encoding.encodeUtf8 (parseField h m)
+    parseField v h m = fmap Data.Text.Encoding.encodeUtf8 (parseField (fmap Data.Text.Encoding.decodeUtf8 v) h m)
 
 instance ParseField Data.Text.Lazy.Text where
-    parseField h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m
+    parseField v h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" (fmap Data.Text.Lazy.unpack v) h m
 
 instance ParseField Data.ByteString.Lazy.ByteString where
-    parseField h m = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m)
+    parseField v h m = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField (fmap Data.Text.Lazy.Encoding.decodeUtf8 v) h m)
 
 instance ParseField FilePath where
-    parseField h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m
+    parseField v h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" (fmap Filesystem.encodeString v) h m
 
 instance ParseField Data.Time.Calendar.Day where
-    parseField h m = do
+    parseField v h m = do
         let metavar = "YYYY-MM-DD"
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.argument iso8601Day fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.option   iso8601Day fs
         where
         iso8601Day = Options.eitherReader
@@ -410,12 +428,14 @@ instance ParseField Data.Time.Calendar.Day where
 -}
 class ParseRecord a => ParseFields a where
     parseFields
-        :: Maybe Text
+        :: Maybe a
+        -- ^ Default value
+        -> Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Parser a
-    default parseFields :: ParseField a => Maybe Text -> Maybe Text -> Parser a
+    default parseFields :: ParseField a => Maybe a -> Maybe Text -> Maybe Text -> Parser a
     parseFields = parseField
 
 instance ParseFields Char
@@ -433,11 +453,12 @@ instance ParseFields FilePath
 instance ParseFields Data.Time.Calendar.Day
 
 instance ParseFields Bool where
-    parseFields h m =
+    parseFields v h m =
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
                        <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> maybe mempty Options.value v
                 Options.argument auto fs
             Just name -> do
                 Options.switch $
@@ -445,28 +466,28 @@ instance ParseFields Bool where
                   <> maybe mempty (Options.help . Data.Text.unpack) h
 
 instance ParseFields () where
-    parseFields _ _ = pure ()
+    parseFields _ _ _ = pure ()
 
 instance ParseFields Any where
-    parseFields h m = (fmap mconcat . many . fmap Any) (parseField h m)
+    parseFields _ h m = (fmap mconcat . many . fmap Any) (parseField Nothing h m)
 
 instance ParseFields All where
-    parseFields h m = (fmap mconcat . many . fmap All) (parseField h m)
+    parseFields _ h m = (fmap mconcat . many . fmap All) (parseField Nothing h m)
 
 instance ParseField a => ParseFields (Maybe a) where
-    parseFields h m = optional (parseField h m)
+    parseFields _ h m = optional (parseField Nothing h m)
 
 instance ParseField a => ParseFields (First a) where
-    parseFields h m = (fmap mconcat . many . fmap (First . Just)) (parseField h m)
+    parseFields _ h m = (fmap mconcat . many . fmap (First . Just)) (parseField Nothing h m)
 
 instance ParseField a => ParseFields (Last a) where
-    parseFields h m = (fmap mconcat . many . fmap (Last . Just)) (parseField h m)
+    parseFields _ h m = (fmap mconcat . many . fmap (Last . Just)) (parseField Nothing h m)
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
-    parseFields h m = (fmap mconcat . many . fmap Sum) (parseField h m)
+    parseFields _ h m = (fmap mconcat . many . fmap Sum) (parseField Nothing h m)
 
 instance (Num a, ParseField a) => ParseFields (Product a) where
-    parseFields h m = (fmap mconcat . many . fmap Product) (parseField h m)
+    parseFields _ h m = (fmap mconcat . many . fmap Product) (parseField Nothing h m)
 
 instance ParseField a => ParseFields [a] where
     parseFields = parseListOfField
@@ -482,13 +503,27 @@ instance ParseField a => ParseFields [a] where
 newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
-    parseField _ m = Helpful <$>
-      parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
+    parseField v _ m = Helpful <$>
+        parseField (fmap unHelpful v) ((Just . Data.Text.pack . symbolVal) (Proxy :: Proxy h)) m
 
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
-    parseFields _ m = Helpful <$>
-      parseFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
+    parseFields v _ m = Helpful <$>
+        parseFields (fmap unHelpful v) ((Just . Data.Text.pack . symbolVal) (Proxy :: Proxy h)) m
+
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
+
+newtype Default a = Default { unDefault :: a } deriving (Generic, Show)
+
+class KnownDefault a where
+  def :: a
+
+instance (ParseField a, KnownDefault a) => ParseField (Default a) where
+    parseField _ h m = Default <$> parseField (Just def) h m
+
+instance (ParseFields a, KnownDefault a) => ParseFields (Default a) where
+    parseFields _ h m = Default <$> parseFields (Just def) h m
+
+instance (ParseFields a, KnownDefault a) => ParseRecord (Default a)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
     `ParseRecord` instances
@@ -684,7 +719,7 @@ instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) whe
         let label = case (selName m) of
                 ""   -> Nothing
                 name -> Just (Data.Text.pack name)
-        fmap (M1 . K1) (parseFields Nothing label)
+        fmap (M1 . K1) (parseFields Nothing Nothing label)
 
 {- [NOTE - Sums]
 
