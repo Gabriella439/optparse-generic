@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeOperators              #-}
 
@@ -211,6 +212,9 @@ module Options.Generic (
     , ParseField(..)
     , Only(..)
     , getOnly
+    , Modifiers(..)
+    , parseRecordWithModifiers
+    , defaultModifiers
 
     -- * Help
     , (<?>)(..)
@@ -520,7 +524,7 @@ getOnly (Only x) = x
 class ParseRecord a where
     parseRecord :: Parser a
     default parseRecord :: (Generic a, GenericParseRecord (Rep a)) => Parser a
-    parseRecord = fmap GHC.Generics.to genericParseRecord
+    parseRecord = fmap GHC.Generics.to (genericParseRecord defaultModifiers)
 
 instance ParseFields a => ParseRecord (Only a)
 
@@ -593,30 +597,38 @@ instance (ParseFields a, ParseFields b, ParseFields c, ParseFields d, ParseField
 
 instance (ParseFields a, ParseFields b) => ParseRecord (Either a b)
 
+data Modifiers = Modifiers
+  { fieldNameModifier :: String -> String
+  , constructorNameModifier :: String -> String
+  }
+
+defaultModifiers :: Modifiers
+defaultModifiers = Modifiers id (map toLower)
+
 class GenericParseRecord f where
-    genericParseRecord :: Parser (f p)
+    genericParseRecord :: Modifiers -> Parser (f p)
 
 instance GenericParseRecord U1 where
-    genericParseRecord = pure U1
+    genericParseRecord _ = pure U1
 
 -- See: [NOTE - Sums]
 instance GenericParseRecord f => GenericParseRecord (M1 C c f) where
-    genericParseRecord = fmap M1 genericParseRecord
+    genericParseRecord = fmap M1 . genericParseRecord
 
 -- See: [NOTE - Sums]
 instance (GenericParseRecord (f :+: g), GenericParseRecord (h :+: i)) => GenericParseRecord ((f :+: g) :+: (h :+: i)) where
-    genericParseRecord = do
-        fmap L1 genericParseRecord <|> fmap R1 genericParseRecord
+    genericParseRecord mods = do
+        fmap L1 (genericParseRecord mods) <|> fmap R1 (genericParseRecord mods)
 
 -- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => GenericParseRecord (M1 C c f :+: (g :+: h)) where
-    genericParseRecord = do
+    genericParseRecord mods@Modifiers{..} = do
         let m :: M1 i c f a
             m = undefined
 
-        let name = map toLower (conName m)
+        let name = constructorNameModifier (conName m)
 
-        let info = Options.info (Options.helper <*> genericParseRecord) mempty
+        let info = Options.info (Options.helper <*> (genericParseRecord mods)) mempty
 
         let subparserFields =
                    Options.command name info
@@ -624,17 +636,17 @@ instance (Constructor c, GenericParseRecord f, GenericParseRecord (g :+: h)) => 
 
         let parser = Options.subparser subparserFields
 
-        fmap (L1 . M1) parser <|> fmap R1 genericParseRecord
+        fmap (L1 . M1) parser <|> fmap R1 (genericParseRecord mods)
 
 -- See: [NOTE - Sums]
 instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => GenericParseRecord ((f :+: g) :+: M1 C c h) where
-    genericParseRecord = do
+    genericParseRecord mods@Modifiers{..} = do
         let m :: M1 i c h a
             m = undefined
 
-        let name = map toLower (conName m)
+        let name = constructorNameModifier (conName m)
 
-        let info = Options.info (Options.helper <*> genericParseRecord) mempty
+        let info = Options.info (Options.helper <*> (genericParseRecord mods)) mempty
 
         let subparserFields =
                    Options.command name info
@@ -642,21 +654,21 @@ instance (Constructor c, GenericParseRecord (f :+: g), GenericParseRecord h) => 
 
         let parser = Options.subparser subparserFields
 
-        fmap L1 genericParseRecord <|> fmap (R1 . M1) parser
+        fmap L1 (genericParseRecord mods) <|> fmap (R1 . M1) parser
 
 -- See: [NOTE - Sums]
 instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRecord f2) => GenericParseRecord (M1 C c1 f1 :+: M1 C c2 f2) where
-    genericParseRecord = do
+    genericParseRecord mods@Modifiers{..} = do
         let m1 :: M1 i c1 f a
             m1 = undefined
         let m2 :: M1 i c2 g a
             m2 = undefined
 
-        let name1 = map toLower (conName m1)
-        let name2 = map toLower (conName m2)
+        let name1 = constructorNameModifier (conName m1)
+        let name2 = constructorNameModifier (conName m2)
 
-        let info1 = Options.info (Options.helper <*> genericParseRecord) mempty
-        let info2 = Options.info (Options.helper <*> genericParseRecord) mempty
+        let info1 = Options.info (Options.helper <*> (genericParseRecord mods)) mempty
+        let info2 = Options.info (Options.helper <*> (genericParseRecord mods)) mempty
 
         let subparserFields1 =
                    Options.command name1 info1
@@ -671,19 +683,19 @@ instance (Constructor c1, Constructor c2, GenericParseRecord f1, GenericParseRec
         fmap (L1 . M1) parser1 <|> fmap (R1 . M1) parser2
 
 instance (GenericParseRecord f, GenericParseRecord g) => GenericParseRecord (f :*: g) where
-    genericParseRecord = liftA2 (:*:) genericParseRecord genericParseRecord
+    genericParseRecord mods = liftA2 (:*:) (genericParseRecord mods) (genericParseRecord mods)
 
 instance GenericParseRecord V1 where
-    genericParseRecord = empty
+    genericParseRecord _ = empty
 
 instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) where
-    genericParseRecord = do
+    genericParseRecord Modifiers{..} = do
         let m :: M1 i s f a
             m = undefined
 
         let label = case (selName m) of
                 ""   -> Nothing
-                name -> Just (Data.Text.pack name)
+                name -> Just (Data.Text.pack (fieldNameModifier name))
         fmap (M1 . K1) (parseFields Nothing label)
 
 {- [NOTE - Sums]
@@ -752,7 +764,10 @@ instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) whe
 -}
 
 instance GenericParseRecord f => GenericParseRecord (M1 D c f) where
-    genericParseRecord = fmap M1 (Options.helper <*> genericParseRecord)
+    genericParseRecord mods = fmap M1 (Options.helper <*> genericParseRecord mods)
+
+parseRecordWithModifiers :: (Generic a, GenericParseRecord (Rep a)) => Modifiers -> Parser a
+parseRecordWithModifiers mods = fmap GHC.Generics.to (genericParseRecord mods)
 
 -- | Marshal any value that implements `ParseRecord` from the command line
 getRecord
