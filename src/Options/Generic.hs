@@ -207,6 +207,7 @@
 module Options.Generic (
     -- * Parsers
       getRecord
+    , getRecordPure
     , ParseRecord(..)
     , ParseFields(..)
     , ParseField(..)
@@ -252,9 +253,10 @@ import qualified Data.Time.Format
 import qualified Data.Typeable
 import qualified Data.ByteString
 import qualified Data.ByteString.Lazy
-import qualified Filesystem.Path.CurrentOS as Filesystem
-import qualified Options.Applicative       as Options
-import qualified Options.Applicative.Types as Options
+import qualified Filesystem.Path.CurrentOS     as Filesystem
+import qualified Options.Applicative           as Options
+import qualified Options.Applicative.Types     as Options
+import qualified Options.Applicative.Help.Core as Options
 import qualified Text.Read
 
 #if MIN_VERSION_base(4,7,0)
@@ -779,4 +781,24 @@ getRecord desc = liftIO (Options.execParser info)
   where
     header = Options.header (Data.Text.unpack desc)
 
+    info = Options.info parseRecord header
+
+getRecordPure
+    :: (ParseRecord a)
+    => Text
+    -> [Text]
+    -> (Maybe a, Text)
+getRecordPure desc args = do
+    let prefs = Options.ParserPrefs
+              { prefMultiSuffix = ""
+              , prefDisambiguate = False
+              , prefShowHelpOnError = False
+              , prefBacktrack = True
+              , prefColumns = 80
+              }
+    let result = Options.getParseResult $ Options.execParserPure prefs info $ map Data.Text.unpack args
+    let help = Options.parserHelp prefs (Options.infoParser info)
+    (result, Data.Text.pack $ show help)
+  where
+    header = Options.header (Data.Text.unpack desc)
     info = Options.info parseRecord header
