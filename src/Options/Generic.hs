@@ -797,8 +797,9 @@ getRecordPure desc args = do
               , prefColumns = 80
               }
     let result = Options.getParseResult $ Options.execParserPure prefs info $ map Data.Text.unpack args
-    let help = Options.parserHelp prefs (Options.infoParser info)
-    (result, Data.Text.pack $ show help)
+    let usageText = Options.parserUsage prefs (Options.infoParser info) $ Data.Text.unpack desc
+    let optionsText = Options.parserHelp prefs (Options.infoParser info)
+    (result, Data.Text.pack $ show usageText ++ "\n\n" ++ show optionsText)
   where
     header = Options.header (Data.Text.unpack desc)
     info = Options.info parseRecord header
