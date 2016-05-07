@@ -217,7 +217,7 @@ module Options.Generic (
     , defaultModifiers
 
     -- * Help
-    , (<?>)(..)
+    , type (<?>)(..)
 
     -- * Re-exports
     , Generic
