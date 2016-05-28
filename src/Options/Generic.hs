@@ -253,10 +253,9 @@ import qualified Data.Time.Format
 import qualified Data.Typeable
 import qualified Data.ByteString
 import qualified Data.ByteString.Lazy
-import qualified Filesystem.Path.CurrentOS     as Filesystem
-import qualified Options.Applicative           as Options
-import qualified Options.Applicative.Types     as Options
-import qualified Options.Applicative.Help.Core as Options
+import qualified Filesystem.Path.CurrentOS as Filesystem
+import qualified Options.Applicative       as Options
+import qualified Options.Applicative.Types as Options
 import qualified Text.Read
 
 #if MIN_VERSION_base(4,7,0)
@@ -783,23 +782,30 @@ getRecord desc = liftIO (Options.execParser info)
 
     info = Options.info parseRecord header
 
+{-| Pure version of `getRecord`
+
+>>> :set -XOverloadedStrings
+>>> getRecordPure ["1"] :: Maybe Int
+Just 1
+>>> getRecordPure ["1", "2"] :: Maybe [Int]
+Just [1,2]
+>>> getRecordPure ["Foo"] :: Maybe Int
+Nothing
+-}
 getRecordPure
-    :: (ParseRecord a)
-    => Text
-    -> [Text]
-    -> (Maybe a, Text)
-getRecordPure desc args = do
+    :: ParseRecord a
+    => [Text]
+    -- ^ Command-line arguments
+    -> Maybe a
+getRecordPure args = do
     let prefs = Options.ParserPrefs
-              { prefMultiSuffix = ""
-              , prefDisambiguate = False
-              , prefShowHelpOnError = False
-              , prefBacktrack = True
-              , prefColumns = 80
-              }
-    let result = Options.getParseResult $ Options.execParserPure prefs info $ map Data.Text.unpack args
-    let usageText = Options.parserUsage prefs (Options.infoParser info) $ Data.Text.unpack desc
-    let optionsText = Options.parserHelp prefs (Options.infoParser info)
-    (result, Data.Text.pack $ show usageText ++ "\n\n" ++ show optionsText)
-  where
-    header = Options.header (Data.Text.unpack desc)
-    info = Options.info parseRecord header
+            { prefMultiSuffix     = ""
+            , prefDisambiguate    = False
+            , prefShowHelpOnError = False
+            , prefBacktrack       = True
+            , prefColumns         = 80
+            }
+    let header = Options.header ""
+    let info   = Options.info parseRecord header
+    let args'  = map Data.Text.unpack args
+    Options.getParseResult (Options.execParserPure prefs info args')
