@@ -804,6 +804,7 @@ getRecordPure args = do
             , prefShowHelpOnError = False
             , prefBacktrack       = True
             , prefColumns         = 80
+            , prefShowHelpOnEmpty = False
             }
     let header = Options.header ""
     let info   = Options.info parseRecord header
