@@ -235,6 +235,7 @@ import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (toLower, toUpper)
 import Data.Monoid
+import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
 import Data.Text (Text)
 import Data.Typeable (Typeable)
@@ -476,6 +477,9 @@ instance (Num a, ParseField a) => ParseFields (Product a) where
 instance ParseField a => ParseFields [a] where
     parseFields = parseListOfField
 
+instance ParseField a => ParseFields (NonEmpty a) where
+    parseFields h m = (:|) <$> parseField h m <*> parseListOfField h m
+
 {-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
     representing the help description for that field:
 
@@ -587,6 +591,9 @@ instance (Num a, ParseField a) => ParseRecord (Product a) where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseField a => ParseRecord [a] where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseField a => ParseRecord (NonEmpty a) where
     parseRecord = fmap getOnly parseRecord
 
 instance (ParseFields a, ParseFields b) => ParseRecord (a, b)
