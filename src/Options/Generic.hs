@@ -783,8 +783,12 @@ getRecord
     => Text
     -- ^ Program description
     -> io a
-getRecord desc = liftIO (Options.execParser info)
+getRecord desc = liftIO (Options.customExecParser prefs info)
   where
+    prefs = Options.defaultPrefs
+        { Options.prefMultiSuffix = "..."
+        }
+
     header = Options.header (Data.Text.unpack desc)
 
     info = Options.info parseRecord header
@@ -806,7 +810,7 @@ getRecordPure
     -> Maybe a
 getRecordPure args = do
     let prefs = Options.ParserPrefs
-            { prefMultiSuffix     = ""
+            { prefMultiSuffix     = "..."
             , prefDisambiguate    = False
             , prefShowHelpOnError = False
             , prefBacktrack       = True
