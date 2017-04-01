@@ -800,14 +800,9 @@ getRecord
     => Text
     -- ^ Program description
     -> io a
-getRecord desc = liftIO (Options.customExecParser prefs info)
+getRecord desc = liftIO (Options.customExecParser defaultParserPrefs info)
   where
-    prefs = Options.defaultPrefs
-        { Options.prefMultiSuffix = "..."
-        }
-
     header = Options.header (Data.Text.unpack desc)
-
     info = Options.info parseRecord header
 
 {-| Pure version of `getRecord`
@@ -826,18 +821,13 @@ getRecordPure
     -- ^ Command-line arguments
     -> Maybe a
 getRecordPure args = do
-    let prefs = Options.ParserPrefs
-            { prefMultiSuffix     = "..."
-            , prefDisambiguate    = False
-            , prefShowHelpOnError = False
-            , prefBacktrack       = True
-            , prefColumns         = 80
-#if MIN_VERSION_optparse_applicative(0,13,0)
-            , prefShowHelpOnEmpty = False
-#else
-#endif
-            }
     let header = Options.header ""
     let info   = Options.info parseRecord header
     let args'  = map Data.Text.unpack args
-    Options.getParseResult (Options.execParserPure prefs info args')
+    Options.getParseResult (Options.execParserPure defaultParserPrefs info args')
+
+-- | @optparse-generic@'s flavor of options.
+defaultParserPrefs :: Options.ParserPrefs
+defaultParserPrefs = Options.defaultPrefs
+  { Options.prefMultiSuffix = "..."
+  }
