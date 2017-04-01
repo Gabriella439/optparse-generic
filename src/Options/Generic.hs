@@ -1,12 +1,16 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE EmptyDataDecls             #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 
 -- | This library auto-generates command-line parsers for data types using
@@ -85,6 +89,36 @@
 --
 -- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
 -- > Example {foo = Helpful {unHelpful = 1}, bar = Helpful {unHelpful = 2.5}}
+--
+-- To avoid this, while still being able to document your fields, you may
+-- generalize the definition of your record with a parameter 'w', and use
+-- 'unwrapRecord'.
+--
+-- > {-# LANGUAGE DataKinds          #-}
+-- > {-# LANGUAGE DeriveGeneric      #-}
+-- > {-# LANGUAGE FlexibleInstances  #-}  -- One more extension.
+-- > {-# LANGUAGE OverloadedStrings  #-}
+-- > {-# LANGUAGE StandaloneDeriving #-}  -- To derive Show
+-- > {-# LANGUAGE TypeOperators      #-}
+-- >
+-- > import Options.Generic
+-- >
+-- > data Example w = Example
+-- >     { foo :: w ::: Int    <?> "Documentation for the foo flag"
+-- >     , bar :: w ::: Double <?> "Documentation for the bar flag"
+-- >     } deriving (Generic)
+-- >
+-- > instance ParseRecord (Example Wrapped)
+-- > deriving instance Show (Example Unwrapped)
+-- >
+-- > main = do
+-- >     x <- unwrapRecord "Test program"
+-- >     print (x :: Example Unwrapped)
+--
+-- @Example Unwrapped@ is equivalent to a record type with simple fields:
+--
+-- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
+-- > Example {foo = 1, bar = 2.5}
 --
 -- For the following examples I encourage you to test what @--help@ output they
 -- generate.
@@ -208,6 +242,8 @@ module Options.Generic (
     -- * Parsers
       getRecord
     , getRecordPure
+    , unwrapRecord
+    , unwrapRecordPure
     , ParseRecord(..)
     , ParseFields(..)
     , ParseField(..)
@@ -220,6 +256,10 @@ module Options.Generic (
 
     -- * Help
     , type (<?>)(..)
+    , type (:::)
+    , Wrapped
+    , Unwrapped
+    , Unwrappable
 
     -- * Re-exports
     , Generic
@@ -831,3 +871,61 @@ defaultParserPrefs :: Options.ParserPrefs
 defaultParserPrefs = Options.defaultPrefs
   { Options.prefMultiSuffix = "..."
   }
+
+-- | A type family to extract fields wrapped using '(<?>)'
+type family (:::) wrap wrapped
+type instance Wrapped ::: wrapped = wrapped
+type instance Unwrapped ::: (field <?> helper) = field
+
+infixr 0 :::
+
+-- | Flag to keep fields wrapped
+data Wrapped
+
+-- | Flag to unwrap fields annotated using '(<?>)'
+data Unwrapped
+
+-- | Constraint for types whose fields can be unwrapped
+type Unwrappable f = (Generic (f Wrapped), Generic (f Unwrapped), GenericUnwrappable (Rep (f Wrapped)) (Rep (f Unwrapped)))
+
+class GenericUnwrappable f f' where
+  genericUnwrap :: f p -> f' p
+
+instance GenericUnwrappable U1 U1 where
+  genericUnwrap = id
+
+instance GenericUnwrappable f f' => GenericUnwrappable (M1 i c f) (M1 i c f') where
+  genericUnwrap = M1 . genericUnwrap . unM1
+
+instance (GenericUnwrappable f f', GenericUnwrappable g g') => GenericUnwrappable (f :+: g) (f' :+: g') where
+  genericUnwrap (L1 f) = L1 (genericUnwrap f)
+  genericUnwrap (R1 g) = R1 (genericUnwrap g)
+
+instance (GenericUnwrappable f f', GenericUnwrappable g g') => GenericUnwrappable (f :*: g) (f' :*: g') where
+  genericUnwrap (f :*: g) = genericUnwrap f :*: genericUnwrap g
+
+instance GenericUnwrappable (K1 i c) (K1 i c) where
+  genericUnwrap = id
+
+instance GenericUnwrappable (K1 i (field <?> helper)) (K1 i field) where
+  genericUnwrap (K1 c) = K1 (unHelpful c)
+
+-- | Unwrap the fields of a constructor
+unwrap :: forall f . Unwrappable f => f Wrapped -> f Unwrapped
+unwrap = to . genericUnwrap . from
+
+-- | Marshal any value that implements 'ParseRecord' from the command line
+-- and unwrap its fields
+unwrapRecord
+    :: (Functor io, MonadIO io, ParseRecord (f Wrapped), Unwrappable f)
+    => Text
+    -> io (f Unwrapped)
+unwrapRecord = fmap unwrap . getRecord
+
+-- | Pure version of `unwrapRecord`
+unwrapRecordPure
+    :: (ParseRecord (f Wrapped), Unwrappable f)
+    => [Text]
+    -- ^ Command-line arguments
+    -> Maybe (f Unwrapped)
+unwrapRecordPure = fmap unwrap . getRecordPure
