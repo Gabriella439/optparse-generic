@@ -216,6 +216,7 @@ module Options.Generic (
     , Modifiers(..)
     , parseRecordWithModifiers
     , defaultModifiers
+    , lispCaseModifiers
 
     -- * Help
     , type (<?>)(..)
@@ -233,7 +234,7 @@ module Options.Generic (
 
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
-import Data.Char (toLower, toUpper)
+import Data.Char (isUpper, toLower, toUpper)
 import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
@@ -612,6 +613,22 @@ data Modifiers = Modifiers
 
 defaultModifiers :: Modifiers
 defaultModifiers = Modifiers id (map toLower)
+
+-- | Convert field and constructor names from @CamelCase@ to @lisp-case@.
+--
+-- Leading underscores are dropped, allowing one to use option names
+-- which are Haskell keywords or otherwise conflicting identifiers.
+--
+-- > BuildCommand -> build-command
+-- > someFlag -> --some-flag
+-- > _type -> --type
+-- > _splitAt -> --split-at
+lispCaseModifiers :: Modifiers
+lispCaseModifiers = Modifiers lispCase lispCase
+  where
+    lispCase = dropWhile (== '-') . (>>= lower) . dropWhile (== '_')
+    lower c | isUpper c = ['-', toLower c]
+            | otherwise = [c]
 
 class GenericParseRecord f where
     genericParseRecord :: Modifiers -> Parser (f p)
