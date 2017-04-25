@@ -241,8 +241,10 @@
 module Options.Generic (
     -- * Parsers
       getRecord
+    , getWithHelp
     , getRecordPure
     , unwrapRecord
+    , unwrapWithHelp
     , unwrapRecordPure
     , ParseRecord(..)
     , ParseFields(..)
@@ -845,6 +847,22 @@ getRecord desc = liftIO (Options.customExecParser defaultParserPrefs info)
     header = Options.header (Data.Text.unpack desc)
     info = Options.info parseRecord header
 
+-- | Marshal any value that implements `ParseRecord` from the commmand line
+-- alongside an io action that prints the help message.
+getWithHelp
+    :: (MonadIO io, ParseRecord a)
+    => Text
+    -- ^ Program description
+    -> io (a, io ())
+    -- ^ (options, io action to print help message)
+getWithHelp desc = do
+  a <- liftIO (Options.customExecParser defaultParserPrefs info)
+  return (a, help)
+  where
+    header = Options.header (Data.Text.unpack desc)
+    info = Options.info parseRecord header
+    help = liftIO (showHelpText defaultParserPrefs info)
+
 {-| Pure version of `getRecord`
 
 >>> :set -XOverloadedStrings
@@ -929,3 +947,20 @@ unwrapRecordPure
     -- ^ Command-line arguments
     -> Maybe (f Unwrapped)
 unwrapRecordPure = fmap unwrap . getRecordPure
+
+showHelpText :: Options.ParserPrefs -> Options.ParserInfo a -> IO ()
+showHelpText pprefs pinfo =
+  Options.handleParseResult . Options.Failure $
+  Options.parserFailure pprefs pinfo Options.ShowHelpText mempty
+
+-- | Marshal any value that implements 'ParseRecord' from the command line
+-- and unwrap its fields alongside an io action to print the help message
+unwrapWithHelp
+    :: (MonadIO io, ParseRecord (f Wrapped), Unwrappable f)
+    => Text
+    -- ^ Program description
+    -> io (f Unwrapped, io ())
+    -- ^ (options, io action to print help message)
+unwrapWithHelp desc = do
+  (opts, help) <- getWithHelp desc
+  return (unwrap opts, help)
