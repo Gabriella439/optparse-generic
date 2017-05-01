@@ -251,12 +251,8 @@
 -- > 
 -- > modifiers :: Modifiers
 -- > modifiers = defaultModifiers
--- >     { shortNameModifier = safeHead
+-- >     { shortNameModifier = firstLetter
 -- >     }
--- >
--- > safeHead :: String -> Maybe Char
--- > safeHead (c:_) = Just c
--- > safeHead  _    = Nothing
 -- >
 -- > instance ParseRecord Example where
 -- >     parseRecord = parseRecordWithModifiers modifiers
@@ -282,6 +278,7 @@ module Options.Generic (
     , parseRecordWithModifiers
     , defaultModifiers
     , lispCaseModifiers
+    , firstLetter
 
     -- * Help
     , type (<?>)(..)
@@ -755,6 +752,13 @@ lispCaseModifiers = Modifiers lispCase lispCase (\_ -> Nothing)
     lispCase = dropWhile (== '-') . (>>= lower) . dropWhile (== '_')
     lower c | isUpper c = ['-', toLower c]
             | otherwise = [c]
+
+{-| Use this for the `shortNameModifier` field of the `Modifiers` record if
+    you want to use the first letter of each option as the short name
+-}
+firstLetter :: String -> Maybe Char
+firstLetter (c:_) = Just c
+firstLetter  _    = Nothing
 
 class GenericParseRecord f where
     genericParseRecord :: Modifiers -> Parser (f p)
