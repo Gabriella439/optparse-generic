@@ -237,6 +237,33 @@
 -- >     In an equation for ‘parseRecord’:
 -- >         parseRecord = Options.Generic.$gdmparseRecord
 -- >     In the instance declaration for ‘ParseRecord TheTypeOfYourRecord’
+--
+-- You can customize the library's default behavior using the
+-- `parseRecordWithModifiers` utility, like this:
+--
+-- > {-# LANGUAGE DeriveGeneric     #-}
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > 
+-- > import Options.Generic
+-- > 
+-- > data Example = Example { foo :: Int, bar :: Double }
+-- >     deriving (Generic, Show)
+-- > 
+-- > modifiers :: Modifiers
+-- > modifiers = defaultModifiers
+-- >     { shortNameModifier = safeHead
+-- >     }
+-- >
+-- > safeHead :: String -> Maybe Char
+-- > safeHead (c:_) = Just c
+-- > safeHead  _    = Nothing
+-- >
+-- > instance ParseRecord Example where
+-- >     parseRecord = parseRecordWithModifiers modifiers
+-- > 
+-- > main = do
+-- >     x <- getRecord "Test program"
+-- >     print (x :: Example)
 
 module Options.Generic (
     -- * Parsers
@@ -329,6 +356,8 @@ class ParseField a where
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
+        -> Maybe Char
+        -- ^ Short name
         -> Parser a
     default parseField
         :: (Typeable a, Read a)
@@ -336,18 +365,21 @@ class ParseField a where
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
+        -> Maybe Char
+        -- ^ Short name
         -> Parser a
-    parseField h m = do
+    parseField h m c = do
         let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
                 Options.argument auto fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
+                       <> foldMap Options.short c
                 Options.option   auto fs
 
     {-| The only reason for this method is to provide a special case for
@@ -359,8 +391,10 @@ class ParseField a where
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
+        -> Maybe Char
+        -- ^ Short name
         -> Parser [a]
-    parseListOfField h m = many (parseField h m)
+    parseListOfField h m c = many (parseField h m c)
 
 instance ParseField Bool
 instance ParseField Double
@@ -375,71 +409,75 @@ instance ParseField String where
     parseField = parseHelpfulString "STRING"
 
 instance ParseField Char where
-    parseField h m = do
+    parseField h m c = do
         let metavar = "CHAR"
         let readM = do
                 s <- Options.readerAsk
                 case s of
-                    [c] -> return c
-                    _   -> Options.readerAbort Options.ShowHelpText
+                    [ch] -> return ch
+                    _    -> Options.readerAbort Options.ShowHelpText
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
                 Options.argument readM fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
+                       <> foldMap Options.short c
                 Options.option   readM fs
 
     parseListOfField = parseHelpfulString "STRING"
 
 instance ParseField Any where
-    parseField h m = Any <$> parseField h m
+    parseField h m c = Any <$> parseField h m c
 instance ParseField All where
-    parseField h m = All <$> parseField h m
+    parseField h m c = All <$> parseField h m c
 
-parseHelpfulString :: String -> Maybe Text -> Maybe Text -> Parser String
-parseHelpfulString metavar h m =
+parseHelpfulString
+    :: String -> Maybe Text -> Maybe Text -> Maybe Char -> Parser String
+parseHelpfulString metavar h m c =
     case m of
         Nothing   -> do
             let fs =  Options.metavar metavar
-                   <> maybe mempty (Options.help . Data.Text.unpack) h
+                   <> foldMap (Options.help . Data.Text.unpack) h
             Options.argument Options.str fs
         Just name -> do
             let fs =  Options.metavar metavar
                    <> Options.long (Data.Text.unpack name)
-                   <> maybe mempty (Options.help . Data.Text.unpack) h
+                   <> foldMap (Options.help . Data.Text.unpack) h
+                   <> foldMap Options.short c
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
-    parseField h m = Data.Text.pack <$> parseHelpfulString "TEXT" h m
+    parseField h m c = Data.Text.pack <$> parseHelpfulString "TEXT" h m c
 
 instance ParseField Data.ByteString.ByteString where
-    parseField h m = fmap Data.Text.Encoding.encodeUtf8 (parseField h m)
+    parseField h m c = fmap Data.Text.Encoding.encodeUtf8 (parseField h m c)
 
 instance ParseField Data.Text.Lazy.Text where
-    parseField h m = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m
+    parseField h m c = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m c
 
 instance ParseField Data.ByteString.Lazy.ByteString where
-    parseField h m = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m)
+    parseField h m c = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m c)
 
 instance ParseField FilePath where
-    parseField h m = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m
+    parseField h m c = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m c
 
 instance ParseField Data.Time.Calendar.Day where
-    parseField h m = do
+    parseField h m c = do
         let metavar = "YYYY-MM-DD"
         case m of
             Nothing   -> do
                 let fs =  Options.metavar metavar
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
                 Options.argument iso8601Day fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
+                       <> foldMap Options.short c
                 Options.option   iso8601Day fs
         where
         iso8601Day = Options.eitherReader
@@ -463,8 +501,11 @@ class ParseRecord a => ParseFields a where
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
+        -> Maybe Char
+        -- ^ Short name
         -> Parser a
-    default parseFields :: ParseField a => Maybe Text -> Maybe Text -> Parser a
+    default parseFields
+        :: ParseField a => Maybe Text -> Maybe Text -> Maybe Char -> Parser a
     parseFields = parseField
 
 instance ParseFields Char
@@ -482,46 +523,47 @@ instance ParseFields FilePath
 instance ParseFields Data.Time.Calendar.Day
 
 instance ParseFields Bool where
-    parseFields h m =
+    parseFields h m c =
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
-                       <> maybe mempty (Options.help . Data.Text.unpack) h
+                       <> foldMap (Options.help . Data.Text.unpack) h
                 Options.argument auto fs
             Just name -> do
                 Options.switch $
                   Options.long (Data.Text.unpack name)
-                  <> maybe mempty (Options.help . Data.Text.unpack) h
+                  <> foldMap (Options.help . Data.Text.unpack) h
+                  <> foldMap Options.short c
 
 instance ParseFields () where
-    parseFields _ _ = pure ()
+    parseFields _ _ _ = pure ()
 
 instance ParseFields Any where
-    parseFields h m = (fmap mconcat . many . fmap Any) (parseField h m)
+    parseFields h m c = (fmap mconcat . many . fmap Any) (parseField h m c)
 
 instance ParseFields All where
-    parseFields h m = (fmap mconcat . many . fmap All) (parseField h m)
+    parseFields h m c = (fmap mconcat . many . fmap All) (parseField h m c)
 
 instance ParseField a => ParseFields (Maybe a) where
-    parseFields h m = optional (parseField h m)
+    parseFields h m c = optional (parseField h m c)
 
 instance ParseField a => ParseFields (First a) where
-    parseFields h m = (fmap mconcat . many . fmap (First . Just)) (parseField h m)
+    parseFields h m c = (fmap mconcat . many . fmap (First . Just)) (parseField h m c)
 
 instance ParseField a => ParseFields (Last a) where
-    parseFields h m = (fmap mconcat . many . fmap (Last . Just)) (parseField h m)
+    parseFields h m c = (fmap mconcat . many . fmap (Last . Just)) (parseField h m c)
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
-    parseFields h m = (fmap mconcat . many . fmap Sum) (parseField h m)
+    parseFields h m c = (fmap mconcat . many . fmap Sum) (parseField h m c)
 
 instance (Num a, ParseField a) => ParseFields (Product a) where
-    parseFields h m = (fmap mconcat . many . fmap Product) (parseField h m)
+    parseFields h m c = (fmap mconcat . many . fmap Product) (parseField h m c)
 
 instance ParseField a => ParseFields [a] where
     parseFields = parseListOfField
 
 instance ParseField a => ParseFields (NonEmpty a) where
-    parseFields h m = (:|) <$> parseField h m <*> parseListOfField h m
+    parseFields h m c = (:|) <$> parseField h m c <*> parseListOfField h m c
 
 {-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
     representing the help description for that field:
@@ -534,12 +576,12 @@ instance ParseField a => ParseFields (NonEmpty a) where
 newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
-    parseField _ m = Helpful <$>
-      parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
+    parseField _ m c = Helpful <$>
+      parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c
 
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
-    parseFields _ m = Helpful <$>
-      parseFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m
+    parseFields _ m c = Helpful <$>
+      parseFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
@@ -648,13 +690,54 @@ instance (ParseFields a, ParseFields b, ParseFields c, ParseFields d, ParseField
 
 instance (ParseFields a, ParseFields b) => ParseRecord (Either a b)
 
+{-| Options for customizing derived `ParseRecord` implementations for `Generic`
+    types
+
+    You can either create the `Modifiers` record directly:
+
+    > modifiers :: Modifiers
+    > modifiers = Modifiers
+    >     { fieldNameModifier       = ...
+    >     , constructorNameModifier = ...
+    >     , shortNameModifier       = ...
+    >     }
+
+    ... or you can tweak the `defaultModifiers`:
+
+    > modifiers :: Modifiers
+    > modifiers = defaultModifiers { fieldNameModifier = ... }
+
+    ... or you can use/tweak a predefined `Modifier`, like `lispCaseModifiers`
+
+    The `parseRecordWithModifiers` function uses this `Modifiers` record when
+    generating a `Generic` implementation of `ParseRecord`
+-}
 data Modifiers = Modifiers
   { fieldNameModifier :: String -> String
+  -- ^ Transform the name of derived fields (Default: @id@)
   , constructorNameModifier :: String -> String
+  -- ^ Transform the name of derived constructors (Default: @map toLower@)
+  , shortNameModifier :: String -> Maybe Char
+  -- ^ Derives an optional short name from the field name (Default: @\\_ -> Nothing@)
   }
 
+{-| These are the default modifiers used if you derive a `Generic`
+    implementation.  You can customize this and pass the result to
+    `parseRecordWithModifiers` if you would like to modify the derived
+    implementation:
+
+    > myModifiers :: Modifiers
+    > myModifiers = defaultModifiers { constructorNameModifier = id }
+    >
+    > instance ParseRecord MyType where
+    >     parseRecord = parseRecordWithModifiers myModifiers
+-}
 defaultModifiers :: Modifiers
-defaultModifiers = Modifiers id (map toLower)
+defaultModifiers = Modifiers
+    { fieldNameModifier       = id
+    , constructorNameModifier = map toLower
+    , shortNameModifier       = \_ -> Nothing
+    }
 
 -- | Convert field and constructor names from @CamelCase@ to @lisp-case@.
 --
@@ -666,7 +749,7 @@ defaultModifiers = Modifiers id (map toLower)
 -- > _type -> --type
 -- > _splitAt -> --split-at
 lispCaseModifiers :: Modifiers
-lispCaseModifiers = Modifiers lispCase lispCase
+lispCaseModifiers = Modifiers lispCase lispCase (\_ -> Nothing)
   where
     lispCase = dropWhile (== '-') . (>>= lower) . dropWhile (== '_')
     lower c | isUpper c = ['-', toLower c]
@@ -760,10 +843,11 @@ instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) whe
         let m :: M1 i s f a
             m = undefined
 
-        let label = case (selName m) of
+        let label = case selName m of
                 ""   -> Nothing
                 name -> Just (Data.Text.pack (fieldNameModifier name))
-        fmap (M1 . K1) (parseFields Nothing label)
+        let shortName = shortNameModifier (selName m)
+        fmap (M1 . K1) (parseFields Nothing label shortName)
 
 {- [NOTE - Sums]
 
@@ -833,7 +917,21 @@ instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) whe
 instance GenericParseRecord f => GenericParseRecord (M1 D c f) where
     genericParseRecord mods = fmap M1 (Options.helper <*> genericParseRecord mods)
 
-parseRecordWithModifiers :: (Generic a, GenericParseRecord (Rep a)) => Modifiers -> Parser a
+{-| Use `parseRecordWithModifiers` when you want to tweak the behavior of a
+    derived `ParseRecord` implementation, like this:
+
+    > myModifiers :: Modifiers
+    > myModifiers = defaultModifiers { constructorNameModifier = id }
+    >
+    > instance ParseRecord MyType where
+    >     parseRecord = parseRecordWithModifiers myModifiers
+
+    This will still require that you derive `Generic` for your type to automate
+    most of the implementation, but the `Modifiers` that you pass will change
+    how the implementation generates the command line interface
+-}
+parseRecordWithModifiers
+    :: (Generic a, GenericParseRecord (Rep a)) => Modifiers -> Parser a
 parseRecordWithModifiers mods = fmap GHC.Generics.to (genericParseRecord mods)
 
 -- | Marshal any value that implements `ParseRecord` from the command line
