@@ -304,6 +304,7 @@ module Options.Generic (
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (isUpper, toLower, toUpper)
+import Data.Foldable (foldMap)
 import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
