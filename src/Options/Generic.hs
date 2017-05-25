@@ -985,7 +985,7 @@ getWithHelp desc = do
 
 {-| Pure version of `getRecord`
 
-If you need to modify the glocal 'ParserInfo' or 'ParserPrefs', use
+If you need to modify the parser's 'ParserInfo' or 'ParserPrefs', use
 `getRecordPure'`.
 
 >>> :set -XOverloadedStrings
@@ -1006,7 +1006,8 @@ getRecordPure args = getRecordPure' args mempty mempty
 {-| Pure version of `getRecord'`
 
 Like `getRecord'`, this is a sibling of 'getRecordPure' and exposes
-the monoidal modifier structures to you.
+the monoidal modifier structures for 'ParserInfo' and 'ParserPrefs' to
+you.
 
 >>> :set -XOverloadedStrings
 >>> getRecordPure' ["1"] mempty mempty :: Maybe Int
