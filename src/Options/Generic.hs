@@ -1055,7 +1055,7 @@ unwrap = to . genericUnwrap . from
 -- | Marshal any value that implements 'ParseRecord' from the command line
 -- and unwrap its fields
 unwrapRecord
-    :: (Functor io, MonadIO io, ParseRecord (f Wrapped), Unwrappable f)
+    :: (MonadIO io, ParseRecord (f Wrapped), Unwrappable f)
     => Text
     -> io (f Unwrapped)
 unwrapRecord = fmap unwrap . getRecord
