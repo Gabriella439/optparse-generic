@@ -301,7 +301,6 @@ module Options.Generic (
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (isUpper, toLower, toUpper)
-import Data.Foldable (foldMap)
 import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
@@ -940,15 +939,33 @@ parseRecordWithModifiers
 parseRecordWithModifiers mods = fmap GHC.Generics.to (genericParseRecord mods)
 
 -- | Marshal any value that implements `ParseRecord` from the command line
+--
+-- If you need to modify the top-level 'ParserInfo' or 'ParserPrefs'
+-- use the 'getRecord'' function.
 getRecord
     :: (MonadIO io, ParseRecord a)
     => Text
     -- ^ Program description
     -> io a
-getRecord desc = liftIO (Options.customExecParser defaultParserPrefs info)
+getRecord desc = getRecord' header mempty
   where
     header = Options.header (Data.Text.unpack desc)
-    info = Options.info parseRecord header
+
+-- | Marshal any value that implements `ParseRecord` from the command line
+--
+-- This is the lower-level sibling of 'getRecord' and lets you modify
+-- the 'ParserInfo' and 'ParserPrefs' records.
+getRecord'
+    :: (MonadIO io, ParseRecord a)
+    => Options.InfoMod a
+    -- ^ 'ParserInfo' modifiers
+    -> Options.PrefsMod
+    -- ^ 'ParserPrefs' modifiers
+    -> io a
+getRecord' infoMods prefMods = liftIO (Options.customExecParser prefs info)
+  where
+    prefs  = Options.prefs (prefMods <> Options.multiSuffix "...")
+    info   = Options.info parseRecord infoMods
 
 -- | Marshal any value that implements `ParseRecord` from the commmand line
 -- alongside an io action that prints the help message.
@@ -959,12 +976,12 @@ getWithHelp
     -> io (a, io ())
     -- ^ (options, io action to print help message)
 getWithHelp desc = do
-  a <- liftIO (Options.customExecParser defaultParserPrefs info)
+  a <- getRecord' header mempty
   return (a, help)
   where
     header = Options.header (Data.Text.unpack desc)
-    info = Options.info parseRecord header
-    help = liftIO (showHelpText defaultParserPrefs info)
+    info   = Options.info parseRecord header
+    help   = liftIO (showHelpText defaultParserPrefs info)
 
 {-| Pure version of `getRecord`
 
