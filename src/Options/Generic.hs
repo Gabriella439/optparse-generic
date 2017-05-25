@@ -964,7 +964,7 @@ getRecord'
     -> io a
 getRecord' infoMods prefMods = liftIO (Options.customExecParser prefs info)
   where
-    prefs  = Options.prefs (prefMods <> Options.multiSuffix "...")
+    prefs  = Options.prefs (prefMods <> defaultParserPrefs)
     info   = Options.info parseRecord infoMods
 
 -- | Marshal any value that implements `ParseRecord` from the commmand line
@@ -981,9 +981,12 @@ getWithHelp desc = do
   where
     header = Options.header (Data.Text.unpack desc)
     info   = Options.info parseRecord header
-    help   = liftIO (showHelpText defaultParserPrefs info)
+    help   = liftIO (showHelpText (Options.prefs defaultParserPrefs) info)
 
 {-| Pure version of `getRecord`
+
+If you need to modify the glocal 'ParserInfo' or 'ParserPrefs', use
+`getRecordPure'`.
 
 >>> :set -XOverloadedStrings
 >>> getRecordPure ["1"] :: Maybe Int
@@ -998,17 +1001,40 @@ getRecordPure
     => [Text]
     -- ^ Command-line arguments
     -> Maybe a
-getRecordPure args = do
+getRecordPure args = getRecordPure' args mempty mempty
+
+{-| Pure version of `getRecord'`
+
+Like `getRecord'`, this is a sibling of 'getRecordPure' and exposes
+the monoidal modifier structures to you.
+
+>>> :set -XOverloadedStrings
+>>> getRecordPure' ["1"] mempty mempty :: Maybe Int
+Just 1
+>>> getRecordPure' ["1", "2"] mempty mempty :: Maybe [Int]
+Just [1,2]
+>>> getRecordPure' ["Foo"] mempty mempty :: Maybe Int
+Nothing
+-}
+getRecordPure'
+    :: ParseRecord a
+    => [Text]
+    -- ^ Command-line arguments
+    -> Options.InfoMod a
+    -- ^ 'ParserInfo' modifiers
+    -> Options.PrefsMod
+    -- ^ 'ParserPrefs' modifiers
+    -> Maybe a
+getRecordPure' args infoMod prefsMod = do
     let header = Options.header ""
-    let info   = Options.info parseRecord header
+    let info   = Options.info parseRecord (infoMod <> header)
+    let prefs  = Options.prefs (prefsMod <> defaultParserPrefs)
     let args'  = map Data.Text.unpack args
-    Options.getParseResult (Options.execParserPure defaultParserPrefs info args')
+    Options.getParseResult (Options.execParserPure prefs info args')
 
 -- | @optparse-generic@'s flavor of options.
-defaultParserPrefs :: Options.ParserPrefs
-defaultParserPrefs = Options.defaultPrefs
-  { Options.prefMultiSuffix = "..."
-  }
+defaultParserPrefs :: Options.PrefsMod
+defaultParserPrefs = Options.multiSuffix "..."
 
 -- | A type family to extract fields wrapped using '(<?>)'
 type family (:::) wrap wrapped
