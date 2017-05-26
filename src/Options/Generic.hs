@@ -307,6 +307,7 @@ import Data.Proxy
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Void (Void)
+import Data.Foldable (foldMap)
 import Filesystem.Path (FilePath)
 import GHC.Generics
 import Prelude hiding (FilePath)
