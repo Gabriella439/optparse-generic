@@ -963,7 +963,7 @@ getRecordWith
     -> Options.PrefsMod
     -- ^ 'ParserPrefs' modifiers
     -> io a
-getRecordWith infoMods prefMods = liftIO (Options.customExecParser prefs info)
+getRecordWith infoMods prefsMods = liftIO (Options.customExecParser prefs info)
   where
     prefs  = Options.prefs (defaultParserPrefs <> prefsMods)
     info   = Options.info parseRecord infoMods
