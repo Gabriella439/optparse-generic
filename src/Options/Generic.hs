@@ -301,13 +301,13 @@ module Options.Generic (
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (isUpper, toLower, toUpper)
-import Data.Foldable (foldMap)
 import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Data.Void (Void)
+import Data.Foldable (foldMap)
 import Filesystem.Path (FilePath)
 import GHC.Generics
 import Prelude hiding (FilePath)
@@ -940,15 +940,33 @@ parseRecordWithModifiers
 parseRecordWithModifiers mods = fmap GHC.Generics.to (genericParseRecord mods)
 
 -- | Marshal any value that implements `ParseRecord` from the command line
+--
+-- If you need to modify the top-level 'ParserInfo' or 'ParserPrefs'
+-- use the 'getRecordWith' function.
 getRecord
     :: (MonadIO io, ParseRecord a)
     => Text
     -- ^ Program description
     -> io a
-getRecord desc = liftIO (Options.customExecParser defaultParserPrefs info)
+getRecord desc = getRecordWith header mempty
   where
     header = Options.header (Data.Text.unpack desc)
-    info = Options.info parseRecord header
+
+-- | Marshal any value that implements `ParseRecord` from the command line
+--
+-- This is the lower-level sibling of 'getRecord and lets you modify
+-- the 'ParserInfo' and 'ParserPrefs' records.
+getRecordWith
+    :: (MonadIO io, ParseRecord a)
+    => Options.InfoMod a
+    -- ^ 'ParserInfo' modifiers
+    -> Options.PrefsMod
+    -- ^ 'ParserPrefs' modifiers
+    -> io a
+getRecordWith infoMods prefsMods = liftIO (Options.customExecParser prefs info)
+  where
+    prefs  = Options.prefs (defaultParserPrefs <> prefsMods)
+    info   = Options.info parseRecord infoMods
 
 -- | Marshal any value that implements `ParseRecord` from the commmand line
 -- alongside an io action that prints the help message.
@@ -959,14 +977,17 @@ getWithHelp
     -> io (a, io ())
     -- ^ (options, io action to print help message)
 getWithHelp desc = do
-  a <- liftIO (Options.customExecParser defaultParserPrefs info)
+  a <- getRecordWith header mempty
   return (a, help)
   where
     header = Options.header (Data.Text.unpack desc)
-    info = Options.info parseRecord header
-    help = liftIO (showHelpText defaultParserPrefs info)
+    info   = Options.info parseRecord header
+    help   = liftIO (showHelpText (Options.prefs defaultParserPrefs) info)
 
 {-| Pure version of `getRecord`
+
+If you need to modify the parser's 'ParserInfo' or 'ParserPrefs', use
+`getRecordPureWith`.
 
 >>> :set -XOverloadedStrings
 >>> getRecordPure ["1"] :: Maybe Int
@@ -981,17 +1002,41 @@ getRecordPure
     => [Text]
     -- ^ Command-line arguments
     -> Maybe a
-getRecordPure args = do
+getRecordPure args = getRecordPureWith args mempty mempty
+
+{-| Pure version of `getRecordWith`
+
+Like `getRecordWith`, this is a sibling of 'getRecordPure and
+exposes the monoidal modifier structures for 'ParserInfo' and
+'ParserPrefs' to you.
+
+>>> :set -XOverloadedStrings
+>>> getRecordPureWith ["1"] mempty mempty :: Maybe Int
+Just 1
+>>> getRecordPureWith ["1", "2"] mempty mempty :: Maybe [Int]
+Just [1,2]
+>>> getRecordPureWith ["Foo"] mempty mempty :: Maybe Int
+Nothing
+-}
+getRecordPureWith
+    :: ParseRecord a
+    => [Text]
+    -- ^ Command-line arguments
+    -> Options.InfoMod a
+    -- ^ 'ParserInfo' modifiers
+    -> Options.PrefsMod
+    -- ^ 'ParserPrefs' modifiers
+    -> Maybe a
+getRecordPureWith args infoMod prefsMod = do
     let header = Options.header ""
-    let info   = Options.info parseRecord header
+    let info   = Options.info parseRecord (header <> infoMod)
+    let prefs  = Options.prefs (defaultParserPrefs <> prefsMod)
     let args'  = map Data.Text.unpack args
-    Options.getParseResult (Options.execParserPure defaultParserPrefs info args')
+    Options.getParseResult (Options.execParserPure prefs info args')
 
 -- | @optparse-generic@'s flavor of options.
-defaultParserPrefs :: Options.ParserPrefs
-defaultParserPrefs = Options.defaultPrefs
-  { Options.prefMultiSuffix = "..."
-  }
+defaultParserPrefs :: Options.PrefsMod
+defaultParserPrefs = Options.multiSuffix "..."
 
 -- | A type family to extract fields wrapped using '(<?>)'
 type family (:::) wrap wrapped
