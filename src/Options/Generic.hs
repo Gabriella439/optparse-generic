@@ -942,30 +942,30 @@ parseRecordWithModifiers mods = fmap GHC.Generics.to (genericParseRecord mods)
 -- | Marshal any value that implements `ParseRecord` from the command line
 --
 -- If you need to modify the top-level 'ParserInfo' or 'ParserPrefs'
--- use the 'getRecord'' function.
+-- use the 'getRecordWith' function.
 getRecord
     :: (MonadIO io, ParseRecord a)
     => Text
     -- ^ Program description
     -> io a
-getRecord desc = getRecord' header mempty
+getRecord desc = getRecordWith header mempty
   where
     header = Options.header (Data.Text.unpack desc)
 
 -- | Marshal any value that implements `ParseRecord` from the command line
 --
--- This is the lower-level sibling of 'getRecord' and lets you modify
+-- This is the lower-level sibling of 'getRecordWith and lets you modify
 -- the 'ParserInfo' and 'ParserPrefs' records.
-getRecord'
+getRecordWith
     :: (MonadIO io, ParseRecord a)
     => Options.InfoMod a
     -- ^ 'ParserInfo' modifiers
     -> Options.PrefsMod
     -- ^ 'ParserPrefs' modifiers
     -> io a
-getRecord' infoMods prefMods = liftIO (Options.customExecParser prefs info)
+getRecordWith infoMods prefMods = liftIO (Options.customExecParser prefs info)
   where
-    prefs  = Options.prefs (prefMods <> defaultParserPrefs)
+    prefs  = Options.prefs (defaultParserPrefs <> prefsMods)
     info   = Options.info parseRecord infoMods
 
 -- | Marshal any value that implements `ParseRecord` from the commmand line
@@ -977,7 +977,7 @@ getWithHelp
     -> io (a, io ())
     -- ^ (options, io action to print help message)
 getWithHelp desc = do
-  a <- getRecord' header mempty
+  a <- getRecordWith header mempty
   return (a, help)
   where
     header = Options.header (Data.Text.unpack desc)
@@ -987,7 +987,7 @@ getWithHelp desc = do
 {-| Pure version of `getRecord`
 
 If you need to modify the parser's 'ParserInfo' or 'ParserPrefs', use
-`getRecordPure'`.
+`getRecordPureWith`.
 
 >>> :set -XOverloadedStrings
 >>> getRecordPure ["1"] :: Maybe Int
@@ -1002,23 +1002,23 @@ getRecordPure
     => [Text]
     -- ^ Command-line arguments
     -> Maybe a
-getRecordPure args = getRecordPure' args mempty mempty
+getRecordPure args = getRecordPureWith args mempty mempty
 
-{-| Pure version of `getRecord'`
+{-| Pure version of `getRecordWith`
 
-Like `getRecord'`, this is a sibling of 'getRecordPure' and exposes
-the monoidal modifier structures for 'ParserInfo' and 'ParserPrefs' to
-you.
+Like `getRecordWith`, this is a sibling of 'getRecordPureWith and
+exposes the monoidal modifier structures for 'ParserInfo' and
+'ParserPrefs' to you.
 
 >>> :set -XOverloadedStrings
->>> getRecordPure' ["1"] mempty mempty :: Maybe Int
+>>> getRecordPureWith ["1"] mempty mempty :: Maybe Int
 Just 1
->>> getRecordPure' ["1", "2"] mempty mempty :: Maybe [Int]
+>>> getRecordPureWith ["1", "2"] mempty mempty :: Maybe [Int]
 Just [1,2]
->>> getRecordPure' ["Foo"] mempty mempty :: Maybe Int
+>>> getRecordPureWith ["Foo"] mempty mempty :: Maybe Int
 Nothing
 -}
-getRecordPure'
+getRecordPureWith
     :: ParseRecord a
     => [Text]
     -- ^ Command-line arguments
@@ -1027,10 +1027,10 @@ getRecordPure'
     -> Options.PrefsMod
     -- ^ 'ParserPrefs' modifiers
     -> Maybe a
-getRecordPure' args infoMod prefsMod = do
+getRecordPureWith args infoMod prefsMod = do
     let header = Options.header ""
-    let info   = Options.info parseRecord (infoMod <> header)
-    let prefs  = Options.prefs (prefsMod <> defaultParserPrefs)
+    let info   = Options.info parseRecord (header <> infoMod)
+    let prefs  = Options.prefs (defaultParserPrefs <> prefsMod)
     let args'  = map Data.Text.unpack args
     Options.getParseResult (Options.execParserPure prefs info args')
 
