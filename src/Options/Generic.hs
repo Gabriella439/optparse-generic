@@ -954,7 +954,7 @@ getRecord desc = getRecordWith header mempty
 
 -- | Marshal any value that implements `ParseRecord` from the command line
 --
--- This is the lower-level sibling of 'getRecordWith and lets you modify
+-- This is the lower-level sibling of 'getRecord and lets you modify
 -- the 'ParserInfo' and 'ParserPrefs' records.
 getRecordWith
     :: (MonadIO io, ParseRecord a)
