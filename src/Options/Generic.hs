@@ -1006,7 +1006,7 @@ getRecordPure args = getRecordPureWith args mempty mempty
 
 {-| Pure version of `getRecordWith`
 
-Like `getRecordWith`, this is a sibling of 'getRecordPureWith and
+Like `getRecordWith`, this is a sibling of 'getRecordPure and
 exposes the monoidal modifier structures for 'ParserInfo' and
 'ParserPrefs' to you.
 
