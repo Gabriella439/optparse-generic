@@ -305,6 +305,7 @@ import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
 import Data.Text (Text)
+import Data.Tuple.Only (Only(..))
 import Data.Typeable (Typeable)
 import Data.Void (Void)
 import Data.Foldable (foldMap)
@@ -585,7 +586,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
     `ParseRecord` instances
 -}
-newtype Only a = Only a deriving (Generic, Show)
+newtype Only_ a = Only_ a deriving (Generic, Show)
 
 {-| This is a convenience function that you can use if you want to create a
     `ParseRecord` instance that just defers to the `ParseFields` instance for
@@ -614,7 +615,11 @@ class ParseRecord a where
     default parseRecord :: (Generic a, GenericParseRecord (Rep a)) => Parser a
     parseRecord = fmap GHC.Generics.to (genericParseRecord defaultModifiers)
 
-instance ParseFields a => ParseRecord (Only a)
+instance ParseFields a => ParseRecord (Only_ a)
+instance ParseFields a => ParseRecord (Only a) where
+    parseRecord = fmap adapt parseRecord
+      where
+        adapt (Only_ x) = Only x
 
 instance ParseRecord Char where
     parseRecord = fmap getOnly parseRecord
