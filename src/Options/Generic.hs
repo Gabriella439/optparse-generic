@@ -301,6 +301,7 @@ module Options.Generic (
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (isUpper, toLower, toUpper)
+import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
@@ -308,6 +309,7 @@ import Data.Text (Text)
 import Data.Tuple.Only (Only(..))
 import Data.Typeable (Typeable)
 import Data.Void (Void)
+import Data.Word (Word8, Word16, Word32, Word64)
 import Data.Foldable (foldMap)
 import Filesystem.Path (FilePath)
 import GHC.Generics
@@ -332,6 +334,10 @@ import qualified Text.Read
 import GHC.TypeLits
 #else
 import Data.Singletons.TypeLits
+#endif
+
+#if MIN_VERSION_base(4,8,0)
+import Numeric.Natural (Natural)
 #endif
 
 auto :: Read a => ReadM a
@@ -373,13 +379,13 @@ class ParseField a where
             Nothing   -> do
                 let fs =  Options.metavar metavar
                        <> foldMap (Options.help . Data.Text.unpack) h
-                Options.argument auto fs
+                Options.argument readField fs
             Just name -> do
                 let fs =  Options.metavar metavar
                        <> Options.long (Data.Text.unpack name)
                        <> foldMap (Options.help . Data.Text.unpack) h
                        <> foldMap Options.short c
-                Options.option   auto fs
+                Options.option   readField fs
 
     {-| The only reason for this method is to provide a special case for
         handling `String`s.  All other instances should just fall back on the
@@ -395,14 +401,50 @@ class ParseField a where
         -> Parser [a]
     parseListOfField h m c = many (parseField h m c)
 
+    readField :: ReadM a
+    default readField :: Read a => ReadM a
+    readField = auto
+
 instance ParseField Bool
 instance ParseField Double
 instance ParseField Float
-instance ParseField Int
 instance ParseField Integer
 instance ParseField Ordering
 instance ParseField ()
 instance ParseField Void
+
+readIntegralBounded :: forall a. (Integral a, Bounded a, Typeable a) => ReadM a
+readIntegralBounded =
+    auto >>= f
+    where
+        f i | i < lower = fail msg
+            | i > upper = fail msg
+            | otherwise = pure $ fromInteger i
+        lower = toInteger (minBound :: a)
+        upper = toInteger (maxBound :: a)
+        msg = map toUpper (show (Data.Typeable.typeOf (undefined :: a))) <>
+              " must be within the range [" <>
+              show lower <> " .. " <> show upper <> "]"
+
+instance ParseField Int    where readField = readIntegralBounded
+instance ParseField Int8   where readField = readIntegralBounded
+instance ParseField Int16  where readField = readIntegralBounded
+instance ParseField Int32  where readField = readIntegralBounded
+instance ParseField Int64  where readField = readIntegralBounded
+instance ParseField Word8  where readField = readIntegralBounded
+instance ParseField Word16 where readField = readIntegralBounded
+instance ParseField Word32 where readField = readIntegralBounded
+instance ParseField Word64 where readField = readIntegralBounded
+
+#if MIN_VERSION_base(4,8,0)
+instance ParseField Natural where
+    readField =
+        auto >>= f
+        where
+            f i | i < 0 = fail msg
+                | otherwise = pure $ fromInteger i
+            msg = "NATURAL cannot be negative"
+#endif
 
 instance ParseField String where
     parseField = parseHelpfulString "STRING"
@@ -463,6 +505,7 @@ instance ParseField Data.ByteString.Lazy.ByteString where
 
 instance ParseField FilePath where
     parseField h m c = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m c
+    readField = Options.str
 
 instance ParseField Data.Time.Calendar.Day where
     parseField h m c = do
@@ -511,15 +554,27 @@ instance ParseFields Char
 instance ParseFields Double
 instance ParseFields Float
 instance ParseFields Int
+instance ParseFields Int8
+instance ParseFields Int16
+instance ParseFields Int32
+instance ParseFields Int64
 instance ParseFields Integer
 instance ParseFields Ordering
 instance ParseFields Void
+instance ParseFields Word8
+instance ParseFields Word16
+instance ParseFields Word32
+instance ParseFields Word64
 instance ParseFields Data.ByteString.ByteString
 instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
 instance ParseFields Data.Time.Calendar.Day
+
+#if MIN_VERSION_base(4,8,0)
+instance ParseFields Natural
+#endif
 
 instance ParseFields Bool where
     parseFields h m c =
@@ -577,6 +632,7 @@ newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } der
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseField _ m c = Helpful <$>
       parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c
+    readField = Helpful <$> readField
 
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
     parseFields _ m c = Helpful <$>
@@ -629,9 +685,30 @@ instance ParseRecord Float where
     parseRecord = fmap getOnly parseRecord
 instance ParseRecord Int where
     parseRecord = fmap getOnly parseRecord
+instance ParseRecord Int8 where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Int16 where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Int32 where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Int64 where
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord Ordering
 instance ParseRecord Void
+instance ParseRecord Word8 where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Word16 where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Word32 where
+    parseRecord = fmap getOnly parseRecord
+instance ParseRecord Word64 where
+    parseRecord = fmap getOnly parseRecord
 instance ParseRecord ()
+
+#if MIN_VERSION_base(4,8,0)
+instance ParseRecord Natural where
+    parseRecord = fmap getOnly parseRecord
+#endif
 
 instance ParseRecord Bool where
     parseRecord = fmap getOnly parseRecord
