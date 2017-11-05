@@ -13,7 +13,7 @@ let
     packageOverrides = pkgs: {
       haskellPackages = pkgs.haskellPackages.override {
         overrides = haskellPackagesNew: haskellPackagesOld: {
-          Only = haskellPackagesNew.callPackage ./Only.nix { };
+          optparse-applicative = haskellPackagesNew.callPackage ./optparse-applicative.nix { };
 
           optparse-generic = haskellPackagesNew.callPackage ./default.nix { };
         };
