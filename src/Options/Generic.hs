@@ -365,8 +365,7 @@ class ParseField a where
         -- ^ Short name
         -> Parser a
     default parseField
-        :: (Typeable a, Read a)
-        => Maybe Text
+        :: Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
@@ -374,14 +373,14 @@ class ParseField a where
         -- ^ Short name
         -> Parser a
     parseField h m c = do
-        let metavar = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
+        let proxy = Proxy :: Proxy a
         case m of
             Nothing   -> do
-                let fs =  Options.metavar metavar
+                let fs =  Options.metavar (metavar proxy)
                        <> foldMap (Options.help . Data.Text.unpack) h
                 Options.argument readField fs
             Just name -> do
-                let fs =  Options.metavar metavar
+                let fs =  Options.metavar (metavar proxy)
                        <> Options.long (Data.Text.unpack name)
                        <> foldMap (Options.help . Data.Text.unpack) h
                        <> foldMap Options.short c
@@ -404,6 +403,10 @@ class ParseField a where
     readField :: ReadM a
     default readField :: Read a => ReadM a
     readField = auto
+
+    metavar :: proxy a -> String
+    default metavar :: Typeable a => proxy a -> String
+    metavar _ = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
 
 instance ParseField Bool
 instance ParseField Double
@@ -450,24 +453,12 @@ instance ParseField String where
     parseField = parseHelpfulString "STRING"
 
 instance ParseField Char where
-    parseField h m c = do
-        let metavar = "CHAR"
-        let readM = do
-                s <- Options.readerAsk
-                case s of
-                    [ch] -> return ch
-                    _    -> Options.readerAbort Options.ShowHelpText
-        case m of
-            Nothing   -> do
-                let fs =  Options.metavar metavar
-                       <> foldMap (Options.help . Data.Text.unpack) h
-                Options.argument readM fs
-            Just name -> do
-                let fs =  Options.metavar metavar
-                       <> Options.long (Data.Text.unpack name)
-                       <> foldMap (Options.help . Data.Text.unpack) h
-                       <> foldMap Options.short c
-                Options.option   readM fs
+    metavar _ = "CHAR"
+    readField = do
+        s <- Options.readerAsk
+        case s of
+            [ch] -> return ch
+            _    -> Options.readerAbort Options.ShowHelpText
 
     parseListOfField = parseHelpfulString "STRING"
 
@@ -508,28 +499,15 @@ instance ParseField FilePath where
     readField = Options.str
 
 instance ParseField Data.Time.Calendar.Day where
-    parseField h m c = do
-        let metavar = "YYYY-MM-DD"
-        case m of
-            Nothing   -> do
-                let fs =  Options.metavar metavar
-                       <> foldMap (Options.help . Data.Text.unpack) h
-                Options.argument iso8601Day fs
-            Just name -> do
-                let fs =  Options.metavar metavar
-                       <> Options.long (Data.Text.unpack name)
-                       <> foldMap (Options.help . Data.Text.unpack) h
-                       <> foldMap Options.short c
-                Options.option   iso8601Day fs
+    metavar _ = "YYYY-MM-DD"
+    readField = Options.eitherReader
+              $ runReadS . Data.Time.Format.readSTime
+                            False
+                            Data.Time.Format.defaultTimeLocale
+                            "%F"
         where
-        iso8601Day = Options.eitherReader
-                   $ runReadS . Data.Time.Format.readSTime
-                                  False
-                                  Data.Time.Format.defaultTimeLocale
-                                  "%F"
-
-        runReadS [(day, "")] = Right day
-        runReadS _           = Left "expected YYYY-MM-DD"
+            runReadS [(day, "")] = Right day
+            runReadS _           = Left "expected YYYY-MM-DD"
 
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
@@ -633,6 +611,7 @@ instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseField _ m c = Helpful <$>
       parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c
     readField = Helpful <$> readField
+    metavar _ = metavar (Proxy :: Proxy a)
 
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
     parseFields _ m c = Helpful <$>
