@@ -1,0 +1,8 @@
+resolver: lts-2.22
+extra-deps:
+- Only-0.1
+- optparse-applicative-0.14.0.0
+- fail-4.9.0.0
+- time-1.5.0.1
+nix:
+  enable: true

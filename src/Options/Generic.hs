@@ -463,8 +463,10 @@ instance ParseField Char where
     parseListOfField = parseHelpfulString "STRING"
 
 instance ParseField Any where
+    metavar _ = "ANY"
     parseField h m c = Any <$> parseField h m c
 instance ParseField All where
+    metavar _ = "ALL"
     parseField h m c = All <$> parseField h m c
 
 parseHelpfulString
