@@ -264,8 +264,10 @@
 module Options.Generic (
     -- * Parsers
       getRecord
+    , getRecordWith
     , getWithHelp
     , getRecordPure
+    , getRecordPureWith
     , unwrapRecord
     , unwrapWithHelp
     , unwrapRecordPure
