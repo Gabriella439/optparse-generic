@@ -7,7 +7,7 @@ License-File: LICENSE
 Copyright: 2016 Gabriel Gonzalez
 Author: Gabriel Gonzalez
 Maintainer: Gabriel439@gmail.com
-Tested-With: GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.2, GHC == 8.0.1
+Tested-With: GHC == 7.8.4, GHC == 7.10.2, GHC == 8.0.1
 Bug-Reports: https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/issues
 Synopsis: Auto-generate a command-line parser for your datatype
 Description: This library auto-generates an @optparse-applicative@-compatible
@@ -33,7 +33,7 @@ Library
         time                 >= 1.5      && < 1.9 ,
         void                                < 0.8 ,
         bytestring                          < 0.11,
-        semigroups           >= 0.5.0    && < 0.19
+        semigroups           >= 0.5.0    && < 0.20
 
     if impl(ghc < 7.8)
         Build-Depends:
