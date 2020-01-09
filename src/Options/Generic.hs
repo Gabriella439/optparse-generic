@@ -281,6 +281,7 @@ module Options.Generic (
     , defaultModifiers
     , lispCaseModifiers
     , firstLetter
+    , GenericParseRecord(..)
 
     -- * Help
     , type (<?>)(..)
