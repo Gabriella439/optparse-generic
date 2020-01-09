@@ -1,3 +1,7 @@
+1.3.1
+
+* Export `GenericParseRecord` and `getRecord{,PureWith}`
+
 1.3.0
 
 * BREAKING CHANGE: New `metavar` method for `ParseField` class

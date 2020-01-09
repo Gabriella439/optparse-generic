@@ -4,7 +4,7 @@
 }:
 mkDerivation {
   pname = "optparse-generic";
-  version = "1.3.0";
+  version = "1.3.1";
   src = ./.;
   libraryHaskellDepends = [
     base bytestring Only optparse-applicative semigroups
