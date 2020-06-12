@@ -119,6 +119,28 @@
 --
 -- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
 -- > Example {foo = 1, bar = 2.5}
+
+-- You can also add default values to each `Read`able field, like this:
+--
+-- > {-# LANGUAGE DataKinds         #-}
+-- > {-# LANGUAGE DeriveGeneric     #-}
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE TypeOperators     #-}
+-- > 
+-- > import Options.Generic
+-- > 
+-- > data Example = Example
+-- >     { foo :: Int    <!> "1"
+-- >     , bar :: String <!> "hello"
+-- >     } deriving (Generic, Show)
+-- > 
+-- > instance ParseRecord Example
+-- > 
+-- > main = do
+-- >     x <- getRecord "Test program"
+-- >     print (x :: Example)
+--
+-- Default values will work alongside help descriptions and unwrapping.
 --
 -- For the following examples I encourage you to test what @--help@ output they
 -- generate.
@@ -285,6 +307,7 @@ module Options.Generic (
 
     -- * Help
     , type (<?>)(..)
+    , type (<!>)(..)
     , type (:::)
     , Wrapped
     , Unwrapped
@@ -366,16 +389,21 @@ class ParseField a where
         -- ^ Field label
         -> Maybe Char
         -- ^ Short name
+        -> Maybe String
+        -- ^ Default value
         -> Parser a
     default parseField
-        :: Maybe Text
+        :: Read a
+        => Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
         -> Maybe Char
         -- ^ Short name
+        -> Maybe String
+        -- ^ Default value
         -> Parser a
-    parseField h m c = do
+    parseField h m c d = do
         let proxy = Proxy :: Proxy a
         case m of
             Nothing   -> do
@@ -387,6 +415,7 @@ class ParseField a where
                        <> Options.long (Data.Text.unpack name)
                        <> foldMap (Options.help . Data.Text.unpack) h
                        <> foldMap Options.short c
+                       <> foldMap Options.value (d >>= Text.Read.readMaybe)
                 Options.option   readField fs
 
     {-| The only reason for this method is to provide a special case for
@@ -400,8 +429,10 @@ class ParseField a where
         -- ^ Field label
         -> Maybe Char
         -- ^ Short name
+        -> Maybe String
+        -- ^ Default value
         -> Parser [a]
-    parseListOfField h m c = many (parseField h m c)
+    parseListOfField h m c d = many (parseField h m c d)
 
     readField :: ReadM a
     default readField :: Read a => ReadM a
@@ -467,14 +498,14 @@ instance ParseField Char where
 
 instance ParseField Any where
     metavar _ = "ANY"
-    parseField h m c = Any <$> parseField h m c
+    parseField h m c d = Any <$> parseField h m c d
 instance ParseField All where
     metavar _ = "ALL"
-    parseField h m c = All <$> parseField h m c
+    parseField h m c d = All <$> parseField h m c d
 
 parseHelpfulString
-    :: String -> Maybe Text -> Maybe Text -> Maybe Char -> Parser String
-parseHelpfulString metavar h m c =
+    :: String -> Maybe Text -> Maybe Text -> Maybe Char -> Maybe String -> Parser String
+parseHelpfulString metavar h m c d =
     case m of
         Nothing   -> do
             let fs =  Options.metavar metavar
@@ -485,22 +516,23 @@ parseHelpfulString metavar h m c =
                    <> Options.long (Data.Text.unpack name)
                    <> foldMap (Options.help . Data.Text.unpack) h
                    <> foldMap Options.short c
+                   <> foldMap Options.value d
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
-    parseField h m c = Data.Text.pack <$> parseHelpfulString "TEXT" h m c
+    parseField h m c d = Data.Text.pack <$> parseHelpfulString "TEXT" h m c d
 
 instance ParseField Data.ByteString.ByteString where
-    parseField h m c = fmap Data.Text.Encoding.encodeUtf8 (parseField h m c)
+    parseField h m c d = fmap Data.Text.Encoding.encodeUtf8 (parseField h m c d)
 
 instance ParseField Data.Text.Lazy.Text where
-    parseField h m c = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m c
+    parseField h m c d = Data.Text.Lazy.pack <$> parseHelpfulString "TEXT" h m c d
 
 instance ParseField Data.ByteString.Lazy.ByteString where
-    parseField h m c = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m c)
+    parseField h m c d = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m c d)
 
 instance ParseField FilePath where
-    parseField h m c = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m c
+    parseField h m c d = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m c d
     readField = Options.str
 
 instance ParseField Data.Time.Calendar.Day where
@@ -528,9 +560,11 @@ class ParseRecord a => ParseFields a where
         -- ^ Field label
         -> Maybe Char
         -- ^ Short name
+        -> Maybe String
+        -- ^ Default value
         -> Parser a
     default parseFields
-        :: ParseField a => Maybe Text -> Maybe Text -> Maybe Char -> Parser a
+        :: ParseField a => Maybe Text -> Maybe Text -> Maybe Char -> Maybe String -> Parser a
     parseFields = parseField
 
 instance ParseFields Char
@@ -560,47 +594,52 @@ instance ParseFields Natural
 #endif
 
 instance ParseFields Bool where
-    parseFields h m c =
+    parseFields h m c d =
         case m of
             Nothing   -> do
                 let fs =  Options.metavar "BOOL"
                        <> foldMap (Options.help . Data.Text.unpack) h
                 Options.argument auto fs
-            Just name -> do
-                Options.switch $
+            Just name -> case d >>= Text.Read.readMaybe of
+                Nothing -> Options.switch $
                   Options.long (Data.Text.unpack name)
                   <> foldMap (Options.help . Data.Text.unpack) h
                   <> foldMap Options.short c
+                Just d0 -> Options.flag d0 (not d0) $
+                  Options.long (Data.Text.unpack name)
+                  <> foldMap (Options.help . Data.Text.unpack) h
+                  <> foldMap Options.short c
+                 
 
 instance ParseFields () where
-    parseFields _ _ _ = pure ()
+    parseFields _ _ _ _ = pure ()
 
 instance ParseFields Any where
-    parseFields h m c = (fmap mconcat . many . fmap Any) (parseField h m c)
+    parseFields h m c d = (fmap mconcat . many . fmap Any) (parseField h m c d)
 
 instance ParseFields All where
-    parseFields h m c = (fmap mconcat . many . fmap All) (parseField h m c)
+    parseFields h m c d = (fmap mconcat . many . fmap All) (parseField h m c d)
 
 instance ParseField a => ParseFields (Maybe a) where
-    parseFields h m c = optional (parseField h m c)
+    parseFields h m c d = optional (parseField h m c d)
 
 instance ParseField a => ParseFields (First a) where
-    parseFields h m c = (fmap mconcat . many . fmap (First . Just)) (parseField h m c)
+    parseFields h m c d = (fmap mconcat . many . fmap (First . Just)) (parseField h m c d)
 
 instance ParseField a => ParseFields (Last a) where
-    parseFields h m c = (fmap mconcat . many . fmap (Last . Just)) (parseField h m c)
+    parseFields h m c d = (fmap mconcat . many . fmap (Last . Just)) (parseField h m c d)
 
 instance (Num a, ParseField a) => ParseFields (Sum a) where
-    parseFields h m c = (fmap mconcat . many . fmap Sum) (parseField h m c)
+    parseFields h m c d = (fmap mconcat . many . fmap Sum) (parseField h m c d)
 
 instance (Num a, ParseField a) => ParseFields (Product a) where
-    parseFields h m c = (fmap mconcat . many . fmap Product) (parseField h m c)
+    parseFields h m c d = (fmap mconcat . many . fmap Product) (parseField h m c d)
 
 instance ParseField a => ParseFields [a] where
     parseFields = parseListOfField
 
 instance ParseField a => ParseFields (NonEmpty a) where
-    parseFields h m c = (:|) <$> parseField h m c <*> parseListOfField h m c
+    parseFields h m c d = (:|) <$> parseField h m c d <*> parseListOfField h m c d
 
 {-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
     representing the help description for that field:
@@ -613,15 +652,34 @@ instance ParseField a => ParseFields (NonEmpty a) where
 newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
-    parseField _ m c = Helpful <$>
-      parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c
+    parseField _ m c d = Helpful <$>
+      parseField ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c d
     readField = Helpful <$> readField
     metavar _ = metavar (Proxy :: Proxy a)
 
 instance (ParseFields a, KnownSymbol h) => ParseFields (a <?> h) where
-    parseFields _ m c = Helpful <$>
-      parseFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c
+    parseFields _ m c d = Helpful <$>
+      parseFields ((Just . Data.Text.pack .symbolVal) (Proxy :: Proxy h)) m c d
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
+
+{-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
+    representing the default value for that field:
+
+> data Example = Example
+>     { foo :: Int    <!> "1"
+>     , bar :: Double <!> "0.5"
+>     } deriving (Generic, Show)
+-}
+newtype (<!>) (field :: *) (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show)
+
+instance (ParseField a, KnownSymbol d) => ParseField (a <!> d) where
+    parseField h m c _ = DefValue <$> parseField h m c (Just (symbolVal (Proxy :: Proxy d)))
+    readField = DefValue <$> readField
+    metavar _ = metavar (Proxy :: Proxy a)
+
+instance (ParseFields a, KnownSymbol d) => ParseFields (a <!> d) where
+    parseFields h m c _ = DefValue <$> parseFields h m c (Just (symbolVal (Proxy :: Proxy d)))
+instance (ParseFields a, KnownSymbol h) => ParseRecord (a <!> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
     `ParseRecord` instances
@@ -918,7 +976,7 @@ instance (Selector s, ParseFields a) => GenericParseRecord (M1 S s (K1 i a)) whe
                 ""   -> Nothing
                 name -> Just (Data.Text.pack (fieldNameModifier name))
         let shortName = shortNameModifier (selName m)
-        fmap (M1 . K1) (parseFields Nothing label shortName)
+        fmap (M1 . K1) (parseFields Nothing label shortName Nothing)
 
 {- [NOTE - Sums]
 
@@ -1107,7 +1165,12 @@ defaultParserPrefs = Options.multiSuffix "..."
 -- | A type family to extract fields wrapped using '(<?>)'
 type family (:::) wrap wrapped
 type instance Wrapped ::: wrapped = wrapped
-type instance Unwrapped ::: (field <?> helper) = field
+type instance Unwrapped ::: wrapped = Unwrap wrapped
+
+type family Unwrap ty where
+  Unwrap (ty <?> helper) = Unwrap ty
+  Unwrap (ty <!> defVal) = Unwrap ty
+  Unwrap ty = ty
 
 infixr 0 :::
 
@@ -1139,8 +1202,13 @@ instance (GenericUnwrappable f f', GenericUnwrappable g g') => GenericUnwrappabl
 instance GenericUnwrappable (K1 i c) (K1 i c) where
   genericUnwrap = id
 
-instance GenericUnwrappable (K1 i (field <?> helper)) (K1 i field) where
-  genericUnwrap (K1 c) = K1 (unHelpful c)
+instance GenericUnwrappable (K1 i field) (K1 i c)
+  => GenericUnwrappable (K1 i (field <?> helper)) (K1 i c) where
+    genericUnwrap (K1 c) = (genericUnwrap :: K1 i field p -> K1 i c p) (K1 (unHelpful c))
+
+instance GenericUnwrappable (K1 i field) (K1 i c)
+  => GenericUnwrappable (K1 i (field <!> defVal)) (K1 i c) where
+    genericUnwrap (K1 c) = (genericUnwrap :: K1 i field p -> K1 i c p) (K1 (unDefValue c))
 
 -- | Unwrap the fields of a constructor
 unwrap :: forall f . Unwrappable f => f Wrapped -> f Unwrapped
