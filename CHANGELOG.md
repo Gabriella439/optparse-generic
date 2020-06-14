@@ -1,3 +1,9 @@
+1.4.0
+
+* BREAKING CHANGE: Add support for type-level default values
+    * This is a breaking change because the various `parse*` typeclass methods
+      now take an additional argument to support this feature
+
 1.3.1
 
 * Export `GenericParseRecord` and `getRecord{,PureWith}`
