@@ -119,7 +119,7 @@
 --
 -- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
 -- > Example {foo = 1, bar = 2.5}
-
+--
 -- You can also add default values to each `Read`able field, like this:
 --
 -- > {-# LANGUAGE DataKinds         #-}
