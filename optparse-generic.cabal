@@ -32,8 +32,11 @@ Library
         optparse-applicative >= 0.14.0.0 && < 0.16,
         time                 >= 1.5      && < 1.10,
         void                                < 0.8 ,
-        bytestring                          < 0.11,
-        semigroups           >= 0.5.0    && < 0.20
+        bytestring                          < 0.11
+    
+    if impl(ghc < 8.0)
+        Build-Depends:
+            semigroups           >= 0.5.0    && < 0.20
 
     if impl(ghc < 7.8)
         Build-Depends:
