@@ -1,3 +1,7 @@
+1.4.1
+
+* Fix broken haddocks
+
 1.4.0
 
 * BREAKING CHANGE: Add support for type-level default values
