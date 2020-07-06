@@ -293,6 +293,7 @@ module Options.Generic (
     , unwrapRecord
     , unwrapWithHelp
     , unwrapRecordPure
+    , unwrap
     , ParseRecord(..)
     , ParseFields(..)
     , ParseField(..)
