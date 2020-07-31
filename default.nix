@@ -1,14 +1,13 @@
 { mkDerivation, base, bytestring, Only, optparse-applicative
-, semigroups, stdenv, system-filepath, text, time, transformers
-, void
+, stdenv, system-filepath, text, time, transformers, void
 }:
 mkDerivation {
   pname = "optparse-generic";
-  version = "1.4.1";
+  version = "1.4.2";
   src = ./.;
   libraryHaskellDepends = [
-    base bytestring Only optparse-applicative semigroups
-    system-filepath text time transformers void
+    base bytestring Only optparse-applicative system-filepath text time
+    transformers void
   ];
   description = "Auto-generate a command-line parser for your datatype";
   license = stdenv.lib.licenses.bsd3;
