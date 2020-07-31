@@ -1,3 +1,9 @@
+1.4.2
+
+* New `unwrap` function
+    * This is the underlying utility that powers
+      `unwrap{Record,RecordPure,WithHelp}`
+
 1.4.1
 
 * Fix broken haddocks
