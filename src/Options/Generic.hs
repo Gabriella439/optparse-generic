@@ -299,6 +299,7 @@ module Options.Generic (
     , ParseField(..)
     , Only(..)
     , getOnly
+    , readIntegralBounded
     , Modifiers(..)
     , parseRecordWithModifiers
     , defaultModifiers
