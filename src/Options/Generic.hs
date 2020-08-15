@@ -373,7 +373,7 @@ auto = do
     s <- Options.readerAsk
     case Text.Read.readMaybe s of
         Just x  -> return x
-        Nothing -> Options.readerAbort Options.ShowHelpText
+        Nothing -> Options.readerAbort (Options.ShowHelpText Nothing)
 
 {-| A class for all record fields that can be parsed from exactly one option or
     argument on the command line
@@ -494,7 +494,7 @@ instance ParseField Char where
         s <- Options.readerAsk
         case s of
             [ch] -> return ch
-            _    -> Options.readerAbort Options.ShowHelpText
+            _    -> Options.readerAbort (Options.ShowHelpText Nothing)
 
     parseListOfField = parseHelpfulString "STRING"
 
@@ -1235,7 +1235,7 @@ unwrapRecordPure = fmap unwrap . getRecordPure
 showHelpText :: Options.ParserPrefs -> Options.ParserInfo a -> IO ()
 showHelpText pprefs pinfo =
   Options.handleParseResult . Options.Failure $
-  Options.parserFailure pprefs pinfo Options.ShowHelpText mempty
+  Options.parserFailure pprefs pinfo (Options.ShowHelpText Nothing) mempty
 
 -- | Marshal any value that implements 'ParseRecord' from the command line
 -- and unwrap its fields alongside an io action to print the help message
