@@ -1,3 +1,8 @@
+1.4.3
+
+* Export internal `readIntegralBounded` utility
+* Build against `optparse-applicative-0.16.0.0`
+
 1.4.2
 
 * New `unwrap` function
