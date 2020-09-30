@@ -452,7 +452,7 @@ instance ParseField Ordering
 instance ParseField ()
 instance ParseField Void
 
-readIntegralBounded :: forall a. (Integral a, Bounded a, Typeable a) => ReadM a
+readIntegralBounded :: forall a. (Integral a, Bounded a, Typeable a, ParseField a) => ReadM a
 readIntegralBounded =
     auto >>= f
     where
@@ -461,7 +461,7 @@ readIntegralBounded =
             | otherwise = pure $ fromInteger i
         lower = toInteger (minBound :: a)
         upper = toInteger (maxBound :: a)
-        msg = map toUpper (show (Data.Typeable.typeOf (undefined :: a))) <>
+        msg = metavar (Proxy :: Proxy a) <>
               " must be within the range [" <>
               show lower <> " .. " <> show upper <> "]"
 
