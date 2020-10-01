@@ -1,3 +1,7 @@
+1.4.4
+
+* `readIntegralBounded`: use `metavar` in error message
+
 1.4.3
 
 * Export internal `readIntegralBounded` utility
