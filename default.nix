@@ -3,7 +3,7 @@
 }:
 mkDerivation {
   pname = "optparse-generic";
-  version = "1.4.3";
+  version = "1.4.4";
   src = ./.;
   libraryHaskellDepends = [
     base bytestring Only optparse-applicative system-filepath text time
