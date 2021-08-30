@@ -420,6 +420,7 @@ class ParseField a where
                        <> foldMap (Options.help . Data.Text.unpack) h
                        <> foldMap Options.short c
                        <> foldMap Options.value (d >>= Text.Read.readMaybe)
+                       <> foldMap (Options.showDefaultWith . const) d
                 Options.option   readField fs
 
     {-| The only reason for this method is to provide a special case for
@@ -520,7 +521,7 @@ parseHelpfulString metavar h m c d =
                    <> Options.long (Data.Text.unpack name)
                    <> foldMap (Options.help . Data.Text.unpack) h
                    <> foldMap Options.short c
-                   <> foldMap Options.value d
+                   <> foldMap ((Options.showDefault <>) . Options.value) d
             Options.option Options.str fs
 
 instance ParseField Data.Text.Text where
