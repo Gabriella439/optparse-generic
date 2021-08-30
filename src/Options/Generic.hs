@@ -310,6 +310,7 @@ module Options.Generic (
     -- * Help
     , type (<?>)(..)
     , type (<!>)(..)
+    , type (<#>)(..)
     , type (:::)
     , Wrapped
     , Unwrapped
@@ -330,6 +331,7 @@ import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Char (isUpper, toLower, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
+import Data.Maybe (listToMaybe)
 import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
@@ -682,6 +684,26 @@ instance (ParseField a, KnownSymbol d) => ParseField (a <!> d) where
 instance (ParseFields a, KnownSymbol d) => ParseFields (a <!> d) where
     parseFields h m c _ = DefValue <$> parseFields h m c (Just (symbolVal (Proxy :: Proxy d)))
 instance (ParseFields a, KnownSymbol h) => ParseRecord (a <!> h)
+
+{-| Use this to annotate a field with a type-level char (i.e. a `Symbol`)
+    representing the short name of the field (only the first character of the
+    symbol is used):
+
+> data Example = Example
+>     { foo :: Int    <#> "f"
+>     , bar :: Double <#> "b"
+>     } deriving (Generic, Show)
+-}
+newtype (<#>) (field :: *) (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show)
+
+instance (ParseField a, KnownSymbol c) => ParseField (a <#> c) where
+    parseField h m _ d = ShortName <$> parseField h m (listToMaybe (symbolVal (Proxy :: Proxy c))) d
+    readField = ShortName <$> readField
+    metavar _ = metavar (Proxy :: Proxy a)
+
+instance (ParseFields a, KnownSymbol c) => ParseFields (a <#> c) where
+    parseFields h m _ d = ShortName <$> parseFields h m (listToMaybe (symbolVal (Proxy :: Proxy c))) d
+instance (ParseFields a, KnownSymbol h) => ParseRecord (a <#> h)
 
 {-| A 1-tuple, used solely to translate `ParseFields` instances into
     `ParseRecord` instances
@@ -1172,6 +1194,7 @@ type instance Unwrapped ::: wrapped = Unwrap wrapped
 type family Unwrap ty where
   Unwrap (ty <?> helper) = Unwrap ty
   Unwrap (ty <!> defVal) = Unwrap ty
+  Unwrap (ty <#> shrtNm) = Unwrap ty
   Unwrap ty = ty
 
 infixr 0 :::
@@ -1211,6 +1234,10 @@ instance GenericUnwrappable (K1 i field) (K1 i c)
 instance GenericUnwrappable (K1 i field) (K1 i c)
   => GenericUnwrappable (K1 i (field <!> defVal)) (K1 i c) where
     genericUnwrap (K1 c) = (genericUnwrap :: K1 i field p -> K1 i c p) (K1 (unDefValue c))
+
+instance GenericUnwrappable (K1 i field) (K1 i c)
+  => GenericUnwrappable (K1 i (field <#> defVal)) (K1 i c) where
+    genericUnwrap (K1 c) = (genericUnwrap :: K1 i field p -> K1 i c p) (K1 (unShortName c))
 
 -- | Unwrap the fields of a constructor
 unwrap :: forall f . Unwrappable f => f Wrapped -> f Unwrapped
