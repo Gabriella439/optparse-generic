@@ -1,3 +1,8 @@
+1.4.5
+
+* [Add ability to set the short name in the type](https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/pull/84)
+* [Display default values in `--help` output](https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/pull/83)
+
 1.4.4
 
 * `readIntegralBounded`: use `metavar` in error message
