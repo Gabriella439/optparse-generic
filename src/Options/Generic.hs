@@ -329,6 +329,8 @@ module Options.Generic (
 
 import Control.Applicative
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.Trans.Except (runExcept)
+import Control.Monad.Trans.Reader (runReaderT)
 import Data.Char (isUpper, toLower, toUpper)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Maybe (listToMaybe)
@@ -397,8 +399,7 @@ class ParseField a where
         -- ^ Default value
         -> Parser a
     default parseField
-        :: Read a
-        => Maybe Text
+        :: Maybe Text
         -- ^ Help message
         -> Maybe Text
         -- ^ Field label
@@ -419,7 +420,7 @@ class ParseField a where
                        <> Options.long (Data.Text.unpack name)
                        <> foldMap (Options.help . Data.Text.unpack) h
                        <> foldMap Options.short c
-                       <> foldMap Options.value (d >>= Text.Read.readMaybe)
+                       <> foldMap Options.value (d >>= runReadM readField)
                        <> foldMap (Options.showDefaultWith . const) d
                 Options.option   readField fs
 
@@ -446,6 +447,11 @@ class ParseField a where
     metavar :: proxy a -> String
     default metavar :: Typeable a => proxy a -> String
     metavar _ = map toUpper (show (Data.Typeable.typeOf (undefined :: a)))
+
+-- | a readMaybe using provided ReadM
+runReadM :: ReadM a -> String -> Maybe a
+runReadM r s = either (const Nothing) Just $
+    runExcept (runReaderT (Options.unReadM r) s)
 
 instance ParseField Bool
 instance ParseField Double
