@@ -1,3 +1,7 @@
+1.4.6
+
+* Use `readField` in default implementation of `parseField`
+
 1.4.5
 
 * [Add ability to set the short name in the type](https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/pull/84)
