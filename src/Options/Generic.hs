@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE EmptyDataDecls             #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -332,6 +333,7 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Trans.Except (runExcept)
 import Control.Monad.Trans.Reader (runReaderT)
 import Data.Char (isUpper, toLower, toUpper)
+import Data.Data (Data)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Maybe (listToMaybe)
 import Data.Monoid
@@ -660,7 +662,7 @@ instance ParseField a => ParseFields (NonEmpty a) where
 >     , bar :: Double <?> "Documentation for the bar flag"
 >     } deriving (Generic, Show)
 -}
-newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show)
+newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show, Data)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseField _ m c d = Helpful <$>
@@ -681,7 +683,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 >     , bar :: Double <!> "0.5"
 >     } deriving (Generic, Show)
 -}
-newtype (<!>) (field :: *) (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show)
+newtype (<!>) (field :: *) (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show, Data)
 
 instance (ParseField a, KnownSymbol d) => ParseField (a <!> d) where
     parseField h m c _ = DefValue <$> parseField h m c (Just (symbolVal (Proxy :: Proxy d)))
@@ -701,7 +703,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <!> h)
 >     , bar :: Double <#> "b"
 >     } deriving (Generic, Show)
 -}
-newtype (<#>) (field :: *) (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show)
+newtype (<#>) (field :: *) (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show, Data)
 
 instance (ParseField a, KnownSymbol c) => ParseField (a <#> c) where
     parseField h m _ d = ShortName <$> parseField h m (listToMaybe (symbolVal (Proxy :: Proxy c))) d
