@@ -30,7 +30,7 @@ Library
         transformers         >= 0.2.0.0  && < 0.7 ,
         transformers-compat  >= 0.3      && < 0.8 ,
         Only                                < 0.2 ,
-        optparse-applicative >= 0.16.0.0 && < 0.17,
+        optparse-applicative >= 0.16.0.0 && < 0.18,
         time                 >= 1.5      && < 1.13,
         void                                < 0.8 ,
         bytestring                          < 0.12
