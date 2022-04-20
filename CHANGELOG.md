@@ -1,3 +1,7 @@
+1.4.8
+
+* [Add `getWithHelpWith`](https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/pull/94)
+
 1.4.7
 
 * [Derive `Data` instances for exported types](https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/pull/89)

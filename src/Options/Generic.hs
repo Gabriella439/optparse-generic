@@ -288,6 +288,7 @@ module Options.Generic (
     -- * Parsers
       getRecord
     , getRecordWith
+    , getWithHelpWith
     , getWithHelp
     , getRecordPure
     , getRecordPureWith
@@ -1133,8 +1134,20 @@ getWithHelp
     -- ^ Program description
     -> io (a, io ())
     -- ^ (options, io action to print help message)
-getWithHelp desc = do
-  a <- getRecordWith header mempty
+getWithHelp desc = getWithHelpWith desc mempty
+
+-- | Marshal any value that implements `ParseRecord` from the commmand line
+-- alongside an io action that prints the help message.
+getWithHelpWith
+    :: (MonadIO io, ParseRecord a)
+    => Text
+    -- ^ Program description
+    -> Options.PrefsMod
+    -- ^ 'ParserPrefs' modifiers
+    -> io (a, io ())
+    -- ^ (options, io action to print help message)
+getWithHelpWith desc prefsMods  = do
+  a <- getRecordWith header prefsMods
   return (a, help)
   where
     header = Options.header (Data.Text.unpack desc)
