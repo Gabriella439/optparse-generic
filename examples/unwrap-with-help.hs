@@ -5,7 +5,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 
-import Data.Coerce
 import Options.Generic
 
 data Options w = Options
@@ -17,6 +16,7 @@ data Options w = Options
 instance ParseRecord (Options Wrapped)
 deriving instance Show (Options Unwrapped)
 
+main :: IO ()
 main = do
   (opts, help) <- unwrapWithHelp "unwrap-example"
   if (a opts) `rem` 10 == 0
