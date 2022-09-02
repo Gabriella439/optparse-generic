@@ -1,11 +1,11 @@
 Name: optparse-generic
-Version: 1.4.7
+Version: 1.4.8
 Cabal-Version: >=1.10
 Build-Type: Simple
 License: BSD3
 License-File: LICENSE
-Copyright: 2016 Gabriel Gonzalez
-Author: Gabriel Gonzalez
+Copyright: 2016 Gabriella Gonzalez
+Author: Gabriella Gonzalez
 Maintainer: Gabriel439@gmail.com
 Tested-With: GHC == 7.8.4, GHC == 7.10.2, GHC == 8.0.1
 Bug-Reports: https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/issues
