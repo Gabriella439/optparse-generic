@@ -360,9 +360,10 @@ import qualified Data.Time.Format
 import qualified Data.Typeable
 import qualified Data.ByteString
 import qualified Data.ByteString.Lazy
-import qualified Filesystem.Path.CurrentOS as Filesystem
-import qualified Options.Applicative       as Options
-import qualified Options.Applicative.Types as Options
+import qualified Filesystem.Path.CurrentOS    as Filesystem
+import qualified Options.Applicative          as Options
+import qualified Options.Applicative.Types    as Options
+import qualified Options.Applicative.NonEmpty as Options.NonEmpty
 import qualified Text.Read
 
 #if MIN_VERSION_base(4,7,0)
@@ -653,7 +654,7 @@ instance ParseField a => ParseFields [a] where
     parseFields = parseListOfField
 
 instance ParseField a => ParseFields (NonEmpty a) where
-    parseFields h m c d = (:|) <$> parseField h m c d <*> parseListOfField h m c d
+    parseFields h m c d = Options.NonEmpty.some1 (parseField h m c d)
 
 {-| Use this to annotate a field with a type-level string (i.e. a `Symbol`)
     representing the help description for that field:
