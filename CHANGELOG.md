@@ -1,6 +1,9 @@
 1.4.8
 
-* [Add `getWithHelpWith`](https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/pull/94)
+* [Improve handling of `NonEmpty`](https://github.com/Gabriella439/optparse-generic/pull/98)
+* [Add `getWithHelpWith`](https://github.com/Gabriella439/Haskell-Optparse-Generic-Library/pull/94)
+* [Build against `optparse-applicative-0.17`](https://github.com/Gabriella439/Haskell-Optparse-Generic-Library/pull/92)
+* [Build against `text-2.0`](https://github.com/Gabriella439/optparse-generic/pull/91)
 
 1.4.7
 
