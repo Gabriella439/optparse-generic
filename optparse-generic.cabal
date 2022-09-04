@@ -6,9 +6,9 @@ License: BSD3
 License-File: LICENSE
 Copyright: 2016 Gabriella Gonzalez
 Author: Gabriella Gonzalez
-Maintainer: Gabriel439@gmail.com
+Maintainer: GenuineGabriella@gmail.com
 Tested-With: GHC == 7.8.4, GHC == 7.10.2, GHC == 8.0.1
-Bug-Reports: https://github.com/Gabriel439/Haskell-Optparse-Generic-Library/issues
+Bug-Reports: https://github.com/Gabriella439/Haskell-Optparse-Generic-Library/issues
 Synopsis: Auto-generate a command-line parser for your datatype
 Description: This library auto-generates an @optparse-applicative@-compatible
     @Parser@ from any data type that derives the @Generic@ interface.
@@ -19,7 +19,7 @@ Category: System
 Extra-Source-Files: CHANGELOG.md
 Source-Repository head
     Type: git
-    Location: https://github.com/Gabriel439/Haskell-Optparse-Generic-Library
+    Location: https://github.com/Gabriella439/Haskell-Optparse-Generic-Library
 
 Library
     Hs-Source-Dirs: src
