@@ -1,3 +1,7 @@
+1.4.9
+
+* [Add `Data` instance for `Unwrapped`](https://github.com/Gabriella439/optparse-generic/pull/100)
+
 1.4.8
 
 * [Improve handling of `NonEmpty`](https://github.com/Gabriella439/optparse-generic/pull/98)
