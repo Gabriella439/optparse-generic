@@ -1227,6 +1227,7 @@ data Wrapped
 
 -- | Flag to unwrap fields annotated using '(<?>)'
 data Unwrapped
+    deriving (Data)
 
 -- | Constraint for types whose fields can be unwrapped
 type Unwrappable f = (Generic (f Wrapped), Generic (f Unwrapped), GenericUnwrappable (Rep (f Wrapped)) (Rep (f Unwrapped)))
