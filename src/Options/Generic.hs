@@ -650,8 +650,14 @@ instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
+instance ParseFields CalendarDiffDays
 instance ParseFields Day
 instance ParseFields UTCTime
+instance ParseFields CalendarDiffTime
+instance ParseFields TimeZone
+instance ParseFields TimeOfDay
+instance ParseFields LocalTime
+instance ParseFields ZonedTime
 
 #if MIN_VERSION_base(4,8,0)
 instance ParseFields Natural
@@ -863,10 +869,28 @@ instance ParseRecord Data.ByteString.ByteString where
 instance ParseRecord Data.ByteString.Lazy.ByteString where
     parseRecord = fmap getOnly parseRecord
 
+instance ParseRecord CalendarDiffDays where
+    parseRecord = fmap getOnly parseRecord
+
 instance ParseRecord Day where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord UTCTime where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord CalendarDiffTime where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord TimeZone where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord TimeOfDay where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord LocalTime where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord ZonedTime where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseField a => ParseRecord (Maybe a) where
