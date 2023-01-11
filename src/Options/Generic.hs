@@ -341,6 +341,7 @@ import Data.Monoid
 import Data.List.NonEmpty (NonEmpty((:|)))
 import Data.Proxy
 import Data.Text (Text)
+import Data.Time.Format.ISO8601 (ISO8601)
 import Data.Tuple.Only (Only(..))
 import Data.Typeable (Typeable)
 import Data.Void (Void)
@@ -351,12 +352,22 @@ import GHC.Generics
 import Prelude hiding (FilePath)
 import Options.Applicative (Parser, ReadM)
 
+import Data.Time
+    ( CalendarDiffDays
+    , CalendarDiffTime
+    , Day
+    , LocalTime
+    , TimeOfDay
+    , TimeZone
+    , UTCTime
+    , ZonedTime
+    )
+
 import qualified Data.Text
 import qualified Data.Text.Encoding
 import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
-import qualified Data.Time.Calendar
-import qualified Data.Time.Format
+import qualified Data.Time.Format.ISO8601     as ISO8601
 import qualified Data.Typeable
 import qualified Data.ByteString
 import qualified Data.ByteString.Lazy
@@ -550,16 +561,53 @@ instance ParseField FilePath where
     parseField h m c d = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m c d
     readField = Options.str
 
-instance ParseField Data.Time.Calendar.Day where
-    metavar _ = "YYYY-MM-DD"
-    readField = Options.eitherReader
-              $ runReadS . Data.Time.Format.readSTime
-                            False
-                            Data.Time.Format.defaultTimeLocale
-                            "%F"
-        where
-            runReadS [(day, "")] = Right day
-            runReadS _           = Left "expected YYYY-MM-DD"
+readISO8601Field :: forall a . (ParseField a, ISO8601 a) => ReadM a
+readISO8601Field = Options.eitherReader reader
+  where
+    reader string =
+      case ISO8601.iso8601ParseM string of
+          Nothing -> Left ("expected " <> metavar (Proxy :: Proxy a))
+          Just t -> Right t
+
+instance ParseField CalendarDiffDays where
+    metavar _ = "PyYmMdD"
+
+    readField = readISO8601Field
+
+instance ParseField Day where
+    metavar _ = "yyyy-mm-dd"
+
+    readField = readISO8601Field
+
+instance ParseField UTCTime where
+    metavar _ = "yyyy-mm-ddThh:mm:ss"
+
+    readField = readISO8601Field
+
+instance ParseField CalendarDiffTime where
+    metavar _ = "PyYmMdDThHmMs"
+
+    readField = readISO8601Field
+
+instance ParseField TimeZone where
+    metavar _ = "±hh:mm"
+
+    readField = readISO8601Field
+
+instance ParseField TimeOfDay where
+    metavar _ = "hh:mm:ss[.sss]"
+
+    readField = readISO8601Field
+
+instance ParseField LocalTime where
+    metavar _ = "yyyy-mm-ddThh:mm:ss[.sss]"
+
+    readField = readISO8601Field
+
+instance ParseField ZonedTime where
+    metavar _ = "yyyy-mm-ddThh:mm:ss[.sss]±hh:mm"
+
+    readField = readISO8601Field
 
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
@@ -602,7 +650,14 @@ instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
 instance ParseFields FilePath
-instance ParseFields Data.Time.Calendar.Day
+instance ParseFields CalendarDiffDays
+instance ParseFields Day
+instance ParseFields UTCTime
+instance ParseFields CalendarDiffTime
+instance ParseFields TimeZone
+instance ParseFields TimeOfDay
+instance ParseFields LocalTime
+instance ParseFields ZonedTime
 
 #if MIN_VERSION_base(4,8,0)
 instance ParseFields Natural
@@ -814,7 +869,28 @@ instance ParseRecord Data.ByteString.ByteString where
 instance ParseRecord Data.ByteString.Lazy.ByteString where
     parseRecord = fmap getOnly parseRecord
 
-instance ParseRecord Data.Time.Calendar.Day where
+instance ParseRecord CalendarDiffDays where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord Day where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord UTCTime where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord CalendarDiffTime where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord TimeZone where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord TimeOfDay where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord LocalTime where
+    parseRecord = fmap getOnly parseRecord
+
+instance ParseRecord ZonedTime where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseField a => ParseRecord (Maybe a) where
