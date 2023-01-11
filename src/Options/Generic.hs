@@ -580,12 +580,12 @@ instance ParseField Day where
     readField = readISO8601Field
 
 instance ParseField UTCTime where
-    metavar _ = "yyyy-mm-ddThh:mm:ss"
+    metavar _ = "yyyy-mm-ddThh:mm:ss[.sss]Z"
 
     readField = readISO8601Field
 
 instance ParseField CalendarDiffTime where
-    metavar _ = "PyYmMdDThHmMs"
+    metavar _ = "PyYmMdDThHmMs[.sss]S"
 
     readField = readISO8601Field
 
