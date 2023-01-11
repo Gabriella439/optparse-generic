@@ -338,7 +338,7 @@ import Data.Data (Data)
 import Data.Int (Int8, Int16, Int32, Int64)
 import Data.Maybe (listToMaybe)
 import Data.Monoid
-import Data.List.NonEmpty (NonEmpty((:|)))
+import Data.List.NonEmpty (NonEmpty)
 import Data.Proxy
 import Data.Text (Text)
 import Data.Time.Format.ISO8601 (ISO8601)
@@ -346,7 +346,6 @@ import Data.Tuple.Only (Only(..))
 import Data.Typeable (Typeable)
 import Data.Void (Void)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Data.Foldable (foldMap)
 import Filesystem.Path (FilePath)
 import GHC.Generics
 import Prelude hiding (FilePath)
@@ -531,14 +530,14 @@ instance ParseField All where
 
 parseHelpfulString
     :: String -> Maybe Text -> Maybe Text -> Maybe Char -> Maybe String -> Parser String
-parseHelpfulString metavar h m c d =
+parseHelpfulString metavar_ h m c d =
     case m of
         Nothing   -> do
-            let fs =  Options.metavar metavar
+            let fs =  Options.metavar metavar_
                    <> foldMap (Options.help . Data.Text.unpack) h
             Options.argument Options.str fs
         Just name -> do
-            let fs =  Options.metavar metavar
+            let fs =  Options.metavar metavar_
                    <> Options.long (Data.Text.unpack name)
                    <> foldMap (Options.help . Data.Text.unpack) h
                    <> foldMap Options.short c
@@ -719,7 +718,7 @@ instance ParseField a => ParseFields (NonEmpty a) where
 >     , bar :: Double <?> "Documentation for the bar flag"
 >     } deriving (Generic, Show)
 -}
-newtype (<?>) (field :: *) (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show, Data)
+newtype (<?>) field (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show, Data)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseField _ m c d = Helpful <$>
@@ -740,7 +739,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 >     , bar :: Double <!> "0.5"
 >     } deriving (Generic, Show)
 -}
-newtype (<!>) (field :: *) (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show, Data)
+newtype (<!>) field (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show, Data)
 
 instance (ParseField a, KnownSymbol d) => ParseField (a <!> d) where
     parseField h m c _ = DefValue <$> parseField h m c (Just (symbolVal (Proxy :: Proxy d)))
@@ -760,7 +759,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <!> h)
 >     , bar :: Double <#> "b"
 >     } deriving (Generic, Show)
 -}
-newtype (<#>) (field :: *) (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show, Data)
+newtype (<#>) field (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show, Data)
 
 instance (ParseField a, KnownSymbol c) => ParseField (a <#> c) where
     parseField h m _ d = ShortName <$> parseField h m (listToMaybe (symbolVal (Proxy :: Proxy c))) d

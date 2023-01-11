@@ -24,7 +24,7 @@ Source-Repository head
 Library
     Hs-Source-Dirs: src
     Build-Depends:
-        base                 >= 4.7      && < 5   ,
+        base                 >= 4.8      && < 5   ,
         system-filepath      >= 0.3.1    && < 0.5 ,
         text                                < 2.1 ,
         transformers         >= 0.2.0.0  && < 0.7 ,
