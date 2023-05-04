@@ -346,9 +346,8 @@ import Data.Tuple.Only (Only(..))
 import Data.Typeable (Typeable)
 import Data.Void (Void)
 import Data.Word (Word8, Word16, Word32, Word64)
-import Filesystem.Path (FilePath)
 import GHC.Generics
-import Prelude hiding (FilePath)
+import Prelude
 import Options.Applicative (Parser, ReadM)
 
 import Data.Time
@@ -370,7 +369,6 @@ import qualified Data.Time.Format.ISO8601     as ISO8601
 import qualified Data.Typeable
 import qualified Data.ByteString
 import qualified Data.ByteString.Lazy
-import qualified Filesystem.Path.CurrentOS    as Filesystem
 import qualified Options.Applicative          as Options
 import qualified Options.Applicative.Types    as Options
 import qualified Options.Applicative.NonEmpty as Options.NonEmpty
@@ -556,10 +554,6 @@ instance ParseField Data.Text.Lazy.Text where
 instance ParseField Data.ByteString.Lazy.ByteString where
     parseField h m c d = fmap Data.Text.Lazy.Encoding.encodeUtf8 (parseField h m c d)
 
-instance ParseField FilePath where
-    parseField h m c d = Filesystem.decodeString <$> parseHelpfulString "FILEPATH" h m c d
-    readField = Options.str
-
 readISO8601Field :: forall a . (ParseField a, ISO8601 a) => ReadM a
 readISO8601Field = Options.eitherReader reader
   where
@@ -648,7 +642,6 @@ instance ParseFields Data.ByteString.ByteString
 instance ParseFields Data.ByteString.Lazy.ByteString
 instance ParseFields Data.Text.Text
 instance ParseFields Data.Text.Lazy.Text
-instance ParseFields FilePath
 instance ParseFields CalendarDiffDays
 instance ParseFields Day
 instance ParseFields UTCTime
@@ -857,9 +850,6 @@ instance ParseRecord Any where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord All where
-    parseRecord = fmap getOnly parseRecord
-
-instance ParseRecord FilePath where
     parseRecord = fmap getOnly parseRecord
 
 instance ParseRecord Data.ByteString.ByteString where
