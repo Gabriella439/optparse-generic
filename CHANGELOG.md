@@ -1,3 +1,8 @@
+1.5.0
+
+* BREAKING CHANGE: [Drop support for `system-filepath`](https://github.com/Gabriella439/optparse-generic/pull/106)
+* [Add support for more `Data.Time` types](https://github.com/Gabriella439/optparse-generic/pull/102)
+
 1.4.9
 
 * [Add `Data` instance for `Unwrapped`](https://github.com/Gabriella439/optparse-generic/pull/100)
