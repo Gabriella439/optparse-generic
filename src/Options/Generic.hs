@@ -711,7 +711,7 @@ instance ParseField a => ParseFields (NonEmpty a) where
 >     , bar :: Double <?> "Documentation for the bar flag"
 >     } deriving (Generic, Show)
 -}
-newtype (<?>) field (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show, Data)
+newtype (<?>) field (help :: Symbol) = Helpful { unHelpful :: field } deriving (Generic, Show, Data, Eq)
 
 instance (ParseField a, KnownSymbol h) => ParseField (a <?> h) where
     parseField _ m c d = Helpful <$>
@@ -732,7 +732,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <?> h)
 >     , bar :: Double <!> "0.5"
 >     } deriving (Generic, Show)
 -}
-newtype (<!>) field (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show, Data)
+newtype (<!>) field (value :: Symbol) = DefValue { unDefValue :: field } deriving (Generic, Show, Data, Eq)
 
 instance (ParseField a, KnownSymbol d) => ParseField (a <!> d) where
     parseField h m c _ = DefValue <$> parseField h m c (Just (symbolVal (Proxy :: Proxy d)))
@@ -752,7 +752,7 @@ instance (ParseFields a, KnownSymbol h) => ParseRecord (a <!> h)
 >     , bar :: Double <#> "b"
 >     } deriving (Generic, Show)
 -}
-newtype (<#>) field (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show, Data)
+newtype (<#>) field (value :: Symbol) = ShortName { unShortName :: field } deriving (Generic, Show, Data, Eq)
 
 instance (ParseField a, KnownSymbol c) => ParseField (a <#> c) where
     parseField h m _ d = ShortName <$> parseField h m (listToMaybe (symbolVal (Proxy :: Proxy c))) d
