@@ -1,3 +1,7 @@
+1.5.1
+
+* [Add `Eq` instances for `(<?>)`, `(<!>)`, and `(<#>)`](https://github.com/Gabriella439/optparse-generic/pull/109)
+
 1.5.0
 
 * BREAKING CHANGE: [Drop support for `system-filepath`](https://github.com/Gabriella439/optparse-generic/pull/106)
