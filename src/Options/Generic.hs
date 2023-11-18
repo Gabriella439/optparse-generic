@@ -384,6 +384,10 @@ import Data.Singletons.TypeLits
 import Numeric.Natural (Natural)
 #endif
 
+#if MIN_VERSION_filepath(1,4,100)
+import System.OsPath
+#endif
+
 auto :: Read a => ReadM a
 auto = do
     s <- Options.readerAsk
@@ -602,6 +606,18 @@ instance ParseField ZonedTime where
 
     readField = readISO8601Field
 
+#if MIN_VERSION_filepath(1,4,100)
+instance ParseField OsString where
+  metavar _ = "PATH"
+  readField = Options.eitherReader reader
+    where
+      reader string =
+        case encodeUtf string of
+            Left err -> Left ("Invalid PATH: " ++ show err)
+            Right t -> pure t
+
+#endif
+
 {-| A class for all types that can be parsed from zero or more arguments/options
     on the command line
 
@@ -650,6 +666,10 @@ instance ParseFields TimeZone
 instance ParseFields TimeOfDay
 instance ParseFields LocalTime
 instance ParseFields ZonedTime
+
+#if MIN_VERSION_filepath(1,4,100)
+instance ParseFields OsString
+#endif
 
 #if MIN_VERSION_base(4,8,0)
 instance ParseFields Natural
@@ -881,6 +901,11 @@ instance ParseRecord LocalTime where
 
 instance ParseRecord ZonedTime where
     parseRecord = fmap getOnly parseRecord
+
+#if MIN_VERSION_filepath(1,4,100)
+instance ParseRecord OsString where
+    parseRecord = fmap getOnly parseRecord
+#endif
 
 instance ParseField a => ParseRecord (Maybe a) where
     parseRecord = fmap getOnly parseRecord
