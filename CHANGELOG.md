@@ -1,3 +1,7 @@
+1.5.2
+
+* [Add support for `OsPath`](https://github.com/Gabriella439/optparse-generic/pull/111)
+
 1.5.1
 
 * [Add `Eq` instances for `(<?>)`, `(<!>)`, and `(<#>)`](https://github.com/Gabriella439/optparse-generic/pull/109)
