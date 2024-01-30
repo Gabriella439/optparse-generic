@@ -25,15 +25,15 @@ Library
     Hs-Source-Dirs: src
     Build-Depends:
         base                 >= 4.8      && < 5   ,
-        text                                < 2.1 ,
+        text                                < 2.2 ,
         transformers         >= 0.2.0.0  && < 0.7 ,
         transformers-compat  >= 0.3      && < 0.8 ,
         Only                                < 0.2 ,
         optparse-applicative >= 0.16.0.0 && < 0.19,
         time                 >= 1.5      && < 1.13,
         void                                < 0.8 ,
-        bytestring                          < 0.12,
-        filepath                            < 1.5
+        bytestring                          < 0.13,
+        filepath                            < 1.6
     
     if impl(ghc < 8.0)
         Build-Depends:
