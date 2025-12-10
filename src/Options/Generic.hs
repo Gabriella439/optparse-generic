@@ -1217,7 +1217,7 @@ getRecordWith infoMods prefsMods = liftIO (Options.customExecParser prefs info)
     prefs  = Options.prefs (defaultParserPrefs <> prefsMods)
     info   = Options.info parseRecord infoMods
 
--- | Marshal any value that implements `ParseRecord` from the commmand line
+-- | Marshal any value that implements `ParseRecord` from the command line
 -- alongside an io action that prints the help message.
 getWithHelp
     :: (MonadIO io, ParseRecord a)
@@ -1227,7 +1227,7 @@ getWithHelp
     -- ^ (options, io action to print help message)
 getWithHelp desc = getWithHelpWith desc mempty
 
--- | Marshal any value that implements `ParseRecord` from the commmand line
+-- | Marshal any value that implements `ParseRecord` from the command line
 -- alongside an io action that prints the help message.
 getWithHelpWith
     :: (MonadIO io, ParseRecord a)
