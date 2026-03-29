@@ -21,21 +21,23 @@
 -- For example, suppose that you want to parse a record with named fields like
 -- this:
 --
--- > -- Example.hs
--- >
--- > {-# LANGUAGE DeriveGeneric     #-}
--- > {-# LANGUAGE OverloadedStrings #-}
--- > 
--- > import Options.Generic
--- > 
--- > data Example = Example { foo :: Int, bar :: Double }
--- >     deriving (Generic, Show)
--- > 
--- > instance ParseRecord Example
--- > 
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: Example)
+-- @
+-- -- Example.hs
+--
+-- {-# LANGUAGE DeriveGeneric     #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+--
+-- import Options.Generic
+--
+-- data Example = Example { foo :: Int, bar :: Double }
+--     deriving (Generic, Show)
+--
+-- instance 'ParseRecord' Example
+--
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: Example)
+-- @
 --
 -- Named fields translate to flags which you can provide in any order:
 --
@@ -47,39 +49,41 @@
 --
 -- > $ stack runghc Example.hs -- --help
 -- > Test program
--- > 
+-- >
 -- > Usage: Example.hs --foo INT --bar DOUBLE
--- > 
+-- >
 -- > Available options:
 -- >   -h,--help                Show this help text
 --
 -- You can also add help descriptions to each field, like this:
 --
--- > {-# LANGUAGE DataKinds         #-}
--- > {-# LANGUAGE DeriveGeneric     #-}
--- > {-# LANGUAGE OverloadedStrings #-}
--- > {-# LANGUAGE TypeOperators     #-}
--- > 
--- > import Options.Generic
--- > 
--- > data Example = Example
--- >     { foo :: Int    <?> "Documentation for the foo flag"
--- >     , bar :: Double <?> "Documentation for the bar flag"
--- >     } deriving (Generic, Show)
--- > 
--- > instance ParseRecord Example
--- > 
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: Example)
+-- @
+-- {-# LANGUAGE DataKinds         #-}
+-- {-# LANGUAGE DeriveGeneric     #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE TypeOperators     #-}
+--
+-- import Options.Generic
+--
+-- data Example = Example
+--     { foo :: Int    '<?>' "Documentation for the foo flag"
+--     , bar :: Double '<?>' "Documentation for the bar flag"
+--     } deriving (Generic, Show)
+--
+-- instance 'ParseRecord' Example
+--
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: Example)
+-- @
 --
 -- ... which produces the following @--help@ output:
 --
 -- > $ stack runghc Example.hs -- --help
 -- > Test program
--- > 
+-- >
 -- > Usage: Example.hs --foo INT --bar DOUBLE
--- > 
+-- >
 -- > Available options:
 -- >   -h,--help                Show this help text
 -- >   --foo INT                Documentation for the foo flag
@@ -95,51 +99,55 @@
 -- generalize the definition of your record with a parameter 'w', and use
 -- 'unwrapRecord'.
 --
--- > {-# LANGUAGE DataKinds          #-}
--- > {-# LANGUAGE DeriveGeneric      #-}
--- > {-# LANGUAGE FlexibleInstances  #-}  -- One more extension.
--- > {-# LANGUAGE OverloadedStrings  #-}
--- > {-# LANGUAGE StandaloneDeriving #-}  -- To derive Show
--- > {-# LANGUAGE TypeOperators      #-}
--- >
--- > import Options.Generic
--- >
--- > data Example w = Example
--- >     { foo :: w ::: Int    <?> "Documentation for the foo flag"
--- >     , bar :: w ::: Double <?> "Documentation for the bar flag"
--- >     } deriving (Generic)
--- >
--- > instance ParseRecord (Example Wrapped)
--- > deriving instance Show (Example Unwrapped)
--- >
--- > main = do
--- >     x <- unwrapRecord "Test program"
--- >     print (x :: Example Unwrapped)
+-- @
+-- {-# LANGUAGE DataKinds          #-}
+-- {-# LANGUAGE DeriveGeneric      #-}
+-- {-# LANGUAGE FlexibleInstances  #-}  -- One more extension.
+-- {-# LANGUAGE OverloadedStrings  #-}
+-- {-# LANGUAGE StandaloneDeriving #-}  -- To derive Show
+-- {-# LANGUAGE TypeOperators      #-}
 --
--- @Example Unwrapped@ is equivalent to a record type with simple fields:
+-- import Options.Generic
+--
+-- data Example w = Example
+--     { foo :: w ::: Int    '<?>' "Documentation for the foo flag"
+--     , bar :: w ::: Double '<?>' "Documentation for the bar flag"
+--     } deriving (Generic)
+--
+-- instance 'ParseRecord' (Example 'Wrapped')
+-- deriving instance Show (Example 'Unwrapped')
+--
+-- main = do
+--     x <- 'unwrapRecord' "Test program"
+--     print (x :: Example Unwrapped)
+-- @
+--
+-- @Example 'Unwrapped'@ is equivalent to a record type with simple fields:
 --
 -- > $ stack runghc Example.hs -- --foo 1 --bar 2.5
 -- > Example {foo = 1, bar = 2.5}
 --
 -- You can also add default values to each `Read`able field, like this:
 --
--- > {-# LANGUAGE DataKinds         #-}
--- > {-# LANGUAGE DeriveGeneric     #-}
--- > {-# LANGUAGE OverloadedStrings #-}
--- > {-# LANGUAGE TypeOperators     #-}
--- > 
--- > import Options.Generic
--- > 
--- > data Example = Example
--- >     { foo :: Int    <!> "1"
--- >     , bar :: String <!> "hello"
--- >     } deriving (Generic, Show)
--- > 
--- > instance ParseRecord Example
--- > 
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: Example)
+-- @
+-- {-# LANGUAGE DataKinds         #-}
+-- {-# LANGUAGE DeriveGeneric     #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE TypeOperators     #-}
+--
+-- import Options.Generic
+--
+-- data Example = Example
+--     { foo :: Int    '<!>' "1"
+--     , bar :: String '<!>' "hello"
+--     } deriving (Generic, Show)
+--
+-- instance 'ParseRecord' Example
+--
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: Example)
+-- @
 --
 -- Default values will work alongside help descriptions and unwrapping.
 --
@@ -181,7 +189,7 @@
 -- > Example {switch = True, list = [1,2], optional = Just 1, first = First 
 -- > {getFirst = Just 1}, last = Last {getLast = Just 2}, sum = Sum {getSum =
 -- > 3}, product = Product {getProduct = 2}}
--- > 
+-- >
 -- > $ stack runghc Example.hs
 -- > Example {switch = False, list = [], optional = Nothing, first = First
 -- > {getFirst = Nothing}, second = Last {getLast = Nothing}, sum = Sum {getSum
@@ -204,32 +212,38 @@
 -- This library also provides out-of-the-box support for many existing types,
 -- like tuples and `Either`.
 --
--- > {-# LANGUAGE DeriveGeneric     #-}
--- > {-# LANGUAGE OverloadedStrings #-}
--- > 
--- > import Options.Generic
--- > 
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: Either Double Int)
+-- @
+-- {-# LANGUAGE DeriveGeneric     #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+--
+-- import Options.Generic
+--
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: Either Double Int)
+-- @
 --
 -- > $ stack runghc Example.hs -- left 1.0
 -- > Left 1.0
 -- > $ stack runghc Example.hs -- right 2
 -- > Right 2
--- 
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: (Double, Int))
+--
+-- @
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: (Double, Int))
+-- @
 --
 -- > $ stack runghc Example.hs -- 1.0 2
 -- > (1.0,2)
 --
 -- ... and you can also just parse a single value:
 --
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: Int)
+-- @
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: Int)
+-- @
 --
 -- > $ stack runghc Example.hs -- 2
 -- > 2
@@ -262,27 +276,29 @@
 -- >     In the instance declaration for ‘ParseRecord TheTypeOfYourRecord’
 --
 -- You can customize the library's default behavior using the
--- `parseRecordWithModifiers` utility, like this:
+-- 'parseRecordWithModifiers' utility, like this:
 --
--- > {-# LANGUAGE DeriveGeneric     #-}
--- > {-# LANGUAGE OverloadedStrings #-}
--- > 
--- > import Options.Generic
--- > 
--- > data Example = Example { foo :: Int, bar :: Double }
--- >     deriving (Generic, Show)
--- > 
--- > modifiers :: Modifiers
--- > modifiers = defaultModifiers
--- >     { shortNameModifier = firstLetter
--- >     }
--- >
--- > instance ParseRecord Example where
--- >     parseRecord = parseRecordWithModifiers modifiers
--- > 
--- > main = do
--- >     x <- getRecord "Test program"
--- >     print (x :: Example)
+-- @
+-- {-# LANGUAGE DeriveGeneric     #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+--
+-- import Options.Generic
+--
+-- data Example = Example { foo :: Int, bar :: Double }
+--     deriving (Generic, Show)
+--
+-- modifiers :: 'Modifiers'
+-- modifiers = 'defaultModifiers'
+--     { shortNameModifier = firstLetter
+--     }
+--
+-- instance 'ParseRecord' Example where
+--     'parseRecord' = 'parseRecordWithModifiers' modifiers
+--
+-- main = do
+--     x <- 'getRecord' "Test program"
+--     print (x :: Example)
+-- @
 
 module Options.Generic (
     -- * Parsers
