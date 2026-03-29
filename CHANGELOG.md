@@ -1,3 +1,10 @@
+1.5.3
+
+- [Link to code in documentation examples](https://github.com/Gabriella439/optparse-generic/pull/118)
+- [Allow newer `optparse-applicative`](https://github.com/Gabriella439/optparse-generic/pull/116)
+- [Allow newer `time`](https://github.com/Gabriella439/optparse-generic/pull/115)
+- [Allow newer `text`, `bytestring`, and `filepath`](https://github.com/Gabriella439/optparse-generic/pull/113)
+
 1.5.2
 
 * [Add support for `OsPath`](https://github.com/Gabriella439/optparse-generic/pull/111)
